@@ -76,7 +76,7 @@ export default function OnboardingPage() {
       <textarea className="field onboarding-input" rows={3} autoFocus value={draft.ambition} onChange={(event) => update('ambition', event.target.value)} placeholder="Write a fantasy novel" />
       <button className="quiet demo-link" onClick={chooseDemo}>Explore with a demo project</button>
     </Question>,
-    <Question key="why" title="Why does this matter to you?" note="Your words. Whetstone will return them to you when the plan gets noisy.">
+    <Question key="why" title="Why does this matter to you?" note="Your words. Tenzon will return them to you when the plan gets noisy.">
       <textarea className="field onboarding-input" rows={3} autoFocus value={draft.why} onChange={(event) => update('why', event.target.value)} placeholder="Because this idea has followed me for years" />
     </Question>,
     <Question key="shape" title="What shape does the work take?" note="This changes what counts as meaningful progress.">
@@ -98,11 +98,11 @@ export default function OnboardingPage() {
       <div className="choice-grid">{toneCopy.map((item) => <ChoiceCard key={item.value} selected={draft.tone === item.value} title={item.title} text={`“${item.text}”`} onClick={() => update('tone', item.value)} />)}</div>
     </Question>,
     <Question key="summary" title="This is your covenant" note="A direction, a boundary, and a plausible way back.">
-      <article className="covenant-preview surface"><p className="display covenant-ambition">{covenant.ambition}</p><p>{covenant.why}</p><dl><div><dt>For now</dt><dd>{covenant.milestone}</dd></div><div><dt>The work remains human</dt><dd>{covenant.humanOwned.join(', ')}</dd></div><div><dt>Whetstone may help with</dt><dd>{covenant.delegable.join(', ') || 'nothing delegated yet'}</dd></div><div><dt>The honest schedule</dt><dd>{covenant.schedule.days.length} days each week, {covenant.schedule.window}, about {covenant.schedule.minutes} minutes</dd></div></dl></article>
+      <article className="covenant-preview surface"><p className="display covenant-ambition">{covenant.ambition}</p><p>{covenant.why}</p><dl><div><dt>For now</dt><dd>{covenant.milestone}</dd></div><div><dt>The work remains human</dt><dd>{covenant.humanOwned.join(', ')}</dd></div><div><dt>Tenzon may help with</dt><dd>{covenant.delegable.join(', ') || 'nothing delegated yet'}</dd></div><div><dt>The honest schedule</dt><dd>{covenant.schedule.days.length} days each week, {covenant.schedule.window}, about {covenant.schedule.minutes} minutes</dd></div></dl></article>
     </Question>,
   ];
 
-  return <main className="onboarding"><div className="onboarding-top"><span className="wordmark">Whetstone<span className="wordmark-dot">.</span></span><div className="progress-dots" aria-label={`Step ${step + 1} of ${steps.length}`}>{steps.map((_, index) => <span key={index} className={index === step ? 'active' : index < step ? 'done' : ''} />)}</div></div><div className="onboarding-body enter">{steps[step]}</div><div className="onboarding-actions">{step > 0 ? <button className="quiet" onClick={() => setStep((current) => current - 1)}>Back</button> : <span />}{step < steps.length - 1 ? <button className="button button-primary" disabled={!nextAllowed()} onClick={() => setStep((current) => current + 1)}>Continue</button> : <button className="button button-primary" disabled={working} onClick={confirm}>{working ? 'Preparing the first invitation' : 'Keep this covenant'}</button>}</div></main>;
+  return <main className="onboarding"><div className="onboarding-top"><span className="wordmark">Tenzon<span className="wordmark-dot">.</span></span><div className="progress-dots" aria-label={`Step ${step + 1} of ${steps.length}`}>{steps.map((_, index) => <span key={index} className={index === step ? 'active' : index < step ? 'done' : ''} />)}</div></div><div className="onboarding-body enter">{steps[step]}</div><div className="onboarding-actions">{step > 0 ? <button className="quiet" onClick={() => setStep((current) => current - 1)}>Back</button> : <span />}{step < steps.length - 1 ? <button className="button button-primary" disabled={!nextAllowed()} onClick={() => setStep((current) => current + 1)}>Continue</button> : <button className="button button-primary" disabled={working} onClick={confirm}>{working ? 'Preparing the first invitation' : 'Keep this covenant'}</button>}</div></main>;
 }
 
 function Question({ title, note, children }: { title: string; note: string; children: React.ReactNode }) {

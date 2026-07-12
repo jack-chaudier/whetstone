@@ -24,7 +24,7 @@ const jetbrains = localFont({
 });
 
 export const metadata: Metadata = {
-  title: 'Whetstone — Project steward',
+  title: 'Tenzon — Project steward',
   description: 'A quiet steward for the meaningful work no one else is enforcing.',
 };
 

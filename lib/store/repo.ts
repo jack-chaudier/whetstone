@@ -1,16 +1,26 @@
 import type { AppState, CoachProviderId, Covenant, DeclineReason, Invitation, InvitationDraft, Project, RecoveryReason, Session } from '@/lib/types';
 import { localDate, sessionDate, shiftDate, uid, weekdayForDate, wordCount } from '@/lib/utils';
 
-export const STORE_KEY = 'whetstone:v1';
+export const STORE_KEY = 'tenzon:v1';
+const LEGACY_STORE_KEY = 'whetstone:v1';
 export const EMPTY_STATE: AppState = { version: 1, projects: [], activeProjectId: null, coachProvider: 'scripted' };
 
 function canStore(): boolean {
   return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined';
 }
 
+function migrateLegacyState(): string | null {
+  const legacy = window.localStorage.getItem(LEGACY_STORE_KEY);
+  if (legacy !== null) {
+    window.localStorage.setItem(STORE_KEY, legacy);
+    window.localStorage.removeItem(LEGACY_STORE_KEY);
+  }
+  return legacy;
+}
+
 export function loadState(): AppState {
   if (!canStore()) return EMPTY_STATE;
-  const raw = window.localStorage.getItem(STORE_KEY);
+  const raw = window.localStorage.getItem(STORE_KEY) ?? migrateLegacyState();
   if (!raw) return EMPTY_STATE;
   try {
     const parsed: unknown = JSON.parse(raw);
@@ -212,7 +222,7 @@ export function exportState(state: AppState): void {
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
   anchor.href = url;
-  anchor.download = `whetstone-${localDate()}.json`;
+  anchor.download = `tenzon-${localDate()}.json`;
   anchor.click();
   URL.revokeObjectURL(url);
 }

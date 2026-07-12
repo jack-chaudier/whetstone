@@ -1,6 +1,6 @@
-# Whetstone
+# Tenzon
 
-Whetstone is an AI project steward for voluntary ambitions: the novel, subject, or question that matters even though no one else is enforcing it. It remembers the live edge of one project, prepares a small daily invitation, and treats deliberate decline and recovery as information rather than failure.
+Tenzon is an AI project steward for voluntary ambitions: the novel, subject, or question that matters even though no one else is enforcing it. It remembers the live edge of one project, prepares a small daily invitation, and treats deliberate decline and recovery as information rather than failure.
 
 The protected workbench keeps imported sources separate from human-authored work. Its coach can nudge, ask a question, or offer intentions, but it will not produce work the covenant says must remain human. The prototype runs entirely in the browser with a deterministic scripted coach; hosted coach models are optional enhancements, not requirements.
 
@@ -21,7 +21,7 @@ OPENAI_API_KEY=your_key_here
 XAI_API_KEY=your_key_here
 ```
 
-The Covenant page switcher offers Whetstone scripted, Claude Sonnet 5, GPT-5.6 Luna, and Grok 4.5. Unconfigured hosted providers remain disabled, and any provider error falls back to the scripted coach; keys stay server-side.
+The Covenant page switcher offers Tenzon scripted, Claude Sonnet 5, GPT-5.6 Luna, and Grok 4.5. Unconfigured hosted providers remain disabled, and any provider error falls back to the scripted coach; keys stay server-side.
 
 ## Architecture
 
@@ -41,7 +41,7 @@ components/app-provider.tsx  client state boundary
                 └── client    selected hosted model with scripted fallback
 ```
 
-State is stored as one typed document under `localStorage` key `whetstone:v1`. Components do not access browser storage directly, so the repository can later be replaced by a remote backend.
+State is stored as one typed document under `localStorage` key `tenzon:v1`. Components do not access browser storage directly, so the repository can later be replaced by a remote backend.
 
 ## Prototype cuts
 

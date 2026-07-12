@@ -1,10 +1,10 @@
-# Whetstone — Prototype v0.1 Spec
+# Tenzon — Prototype v0.1 Spec
 
-Working prototype of the product described in `Whetstone_Project_Steward.md` (read it first — it is the source of truth for tone and intent). This spec freezes scope, architecture, and design for the first build.
+Working prototype of the product described in `Tenzon_Project_Steward.md` (read it first — it is the source of truth for tone and intent). This spec freezes scope, architecture, and design for the first build.
 
 ## Product summary
 
-Whetstone is an AI project steward for voluntary personal ambitions (write a novel, learn calculus, research a question). It does NOT do the meaningful work; it manages the conditions of return. Two loops:
+Tenzon is an AI project steward for voluntary personal ambitions (write a novel, learn calculus, research a question). It does NOT do the meaningful work; it manages the conditions of return. Two loops:
 
 - **Outer loop**: remembers project state between sessions, generates one small/specific/continuous daily invitation, handles deliberate decline and recovery after missed days.
 - **Inner loop**: a protected workbench where the human produces the work; sources are visually and structurally separated from human-authored material; the coach stays quiet and assists without taking authorship.
@@ -90,7 +90,7 @@ interface Project {
 }
 ```
 
-Repository (`lib/store/repo.ts`): load/save whole app state to `localStorage` key `whetstone:v1`; typed getters/mutators (createProject, todayInvitation, startSession, endSession, declineInvitation, recordRecovery…). No direct localStorage access from components.
+Repository (`lib/store/repo.ts`): load/save whole app state to `localStorage` key `tenzon:v1`; typed getters/mutators (createProject, todayInvitation, startSession, endSession, declineInvitation, recordRecovery…). No direct localStorage access from components.
 
 ## Coach engine (`lib/coach/`)
 
@@ -115,7 +115,7 @@ type AssistLevel = 'nudge' | 'question' | 'options'; // never finished work
 First-run (no project in store) redirects here. NOT a form. One question per step, full-screen, centered, generous whitespace, the question set in display serif. Steps: ambition → why it matters → shape (three cards: Make / Learn / Investigate) → what already exists → what has stopped you → schedule (day picker + minutes/session + time window) → what stays human (chips, editable) → coach tone (three cards w/ sample line of coach voice in each) → covenant summary ("This is your covenant" — a beautifully typeset document-style card; confirm) → first invitation is generated and user lands on Today. Progress dots at top. Back navigation works. Also a quiet "Explore with a demo project" link on the first step which seeds the demo project (below) and jumps to Today.
 
 ### `/` — Today
-The daily anchor. Layout: masthead (wordmark "Whetstone", nav: Today / Progress / Covenant), then:
+The daily anchor. Layout: masthead (wordmark "Tenzon", nav: Today / Progress / Covenant), then:
 - Date + short greeting line (time-of-day aware, coach-toned, no exclamation points).
 - **The invitation card** (hero of the screen): continuity line ("Yesterday you…") in muted text, the action in display serif ~28px, stopping condition, scope estimate ("about 25 minutes"). Primary button "Begin" (opens workbench). Secondary quiet actions: "Make it smaller" (regenerates at ~half scope) and "Not today" (opens decline flow).
 - Decline flow: inline sheet, one question — "What's true right now?" with three options (No real time today / I'm not sure what to do / I don't want to face it). Each gets a different one-line coach response and either a 10-minute micro-alternative or a graceful release ("Deliberately declined. That counts as a decision, not a failure."). Recorded on the invitation.
@@ -157,7 +157,7 @@ Tokens (CSS custom properties in `globals.css`, wired into Tailwind v4 `@theme`)
 - Type: Newsreader for display headings, invitation actions, covenant document, reflection quotes, the identity sentence (weights 400/500, tight leading, occasionally italic for quotes). Inter 13–15px for UI, labels 12px uppercase tracking-wide `--ink-faint`. JetBrains Mono only for word counts/timers/data chips.
 - Buttons: primary = ink background (#191817), paper text, radius 6, 13.5px Inter medium, subtle press state — NOT clay (clay is an accent, used for focus rings, active states, small highlights, the wordmark's period). Secondary = 1px border, transparent. Quiet = text-only, `--ink-secondary`, underline on hover.
 - Motion: 160ms ease-out fades/6px slide-ups on card/dialog entry; continuity squares fill with a 240ms stagger on Progress load. No bouncing, no springs.
-- The wordmark: "Whetstone" set in Newsreader 500 with a clay period → "Whetstone·" — actually render as "Whetstone" followed by a clay-colored "." Keep it small (18px) in the masthead.
+- The wordmark: "Tenzon" set in Newsreader 500 with a clay period → "Tenzon·" — actually render as "Tenzon" followed by a clay-colored "." Keep it small (18px) in the masthead.
 - Empty/quiet states get coach-voice copy, never generic ("No sessions yet" → "Nothing yet. That's what tomorrow is for.").
 - Everything keyboard-accessible; visible focus rings (2px clay, offset 2). Semantic HTML. `<main>`, headings in order.
 - Max content width 720px for reading surfaces (Today, Covenant, Progress); workbench uses full width with the 720px bench centered when rail collapsed.
