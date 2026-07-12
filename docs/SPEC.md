@@ -98,7 +98,7 @@ Provider interface:
 
 ```ts
 interface CoachProvider {
-  generateInvitation(project: Project, ctx: { missedYesterday: boolean }): Promise<InvitationDraft>;
+  generateInvitation(project: Project, ctx: { missedLastScheduled: boolean }): Promise<InvitationDraft>;
   assist(project: Project, session: Session, ask: string, level: AssistLevel): Promise<string>;
   closeoutQuestion(project: Project, session: Session): Promise<string>;
 }

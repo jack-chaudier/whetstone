@@ -1,18 +1,7 @@
-import type { AssistLevel, InvitationDraft, Project, Session } from '@/lib/types';
+import type { AssistLevel, CoachProviderId, InvitationDraft, Project, Session } from '@/lib/types';
 import { ScriptedCoachProvider } from '@/lib/coach/scripted.mjs';
 
 const scripted = new ScriptedCoachProvider();
-
-async function apiAvailable(): Promise<boolean> {
-  try {
-    const response = await fetch('/api/coach/status', { cache: 'no-store' });
-    if (!response.ok) return false;
-    const body = await response.json() as { configured: boolean };
-    return body.configured;
-  } catch {
-    return false;
-  }
-}
 
 async function callApi<T>(body: object): Promise<T> {
   const response = await fetch('/api/coach', {
@@ -22,23 +11,23 @@ async function callApi<T>(body: object): Promise<T> {
   return response.json() as Promise<T>;
 }
 
-export async function generateInvitation(project: Project, missedYesterday: boolean): Promise<InvitationDraft> {
-  if (await apiAvailable()) {
-    try { return await callApi<InvitationDraft>({ action: 'invitation', project, missedYesterday }); } catch { /* scripted fallback */ }
+export async function generateInvitation(project: Project, missedLastScheduled: boolean, provider: CoachProviderId): Promise<InvitationDraft> {
+  if (provider !== 'scripted') {
+    try { return await callApi<InvitationDraft>({ action: 'invitation', project, missedLastScheduled, provider }); } catch { /* scripted fallback */ }
   }
-  return scripted.generateInvitation(project, { missedYesterday });
+  return scripted.generateInvitation(project, { missedLastScheduled });
 }
 
-export async function assist(project: Project, session: Session, ask: string, level: AssistLevel): Promise<string> {
-  if (await apiAvailable()) {
-    try { return (await callApi<{ text: string }>({ action: 'assist', project, session, ask, level })).text; } catch { /* scripted fallback */ }
+export async function assist(project: Project, session: Session, ask: string, level: AssistLevel, provider: CoachProviderId): Promise<string> {
+  if (provider !== 'scripted') {
+    try { return (await callApi<{ text: string }>({ action: 'assist', project, session, ask, level, provider })).text; } catch { /* scripted fallback */ }
   }
   return scripted.assist(project, session, ask, level);
 }
 
-export async function closeoutQuestion(project: Project, session: Session): Promise<string> {
-  if (await apiAvailable()) {
-    try { return (await callApi<{ text: string }>({ action: 'closeout', project, session })).text; } catch { /* scripted fallback */ }
+export async function closeoutQuestion(project: Project, session: Session, provider: CoachProviderId): Promise<string> {
+  if (provider !== 'scripted') {
+    try { return (await callApi<{ text: string }>({ action: 'closeout', project, session, provider })).text; } catch { /* scripted fallback */ }
   }
   return scripted.closeoutQuestion(project, session);
 }

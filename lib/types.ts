@@ -3,6 +3,8 @@ export type CoachTone = 'warm' | 'dry' | 'firm';
 export type AssistLevel = 'nudge' | 'question' | 'options';
 export type DeclineReason = 'no-time' | 'confused' | 'dread';
 export type RecoveryReason = 'time' | 'confusion' | 'dread' | 'life';
+export type ApiCoachProvider = 'anthropic' | 'openai' | 'xai';
+export type CoachProviderId = 'scripted' | ApiCoachProvider;
 
 export interface Covenant {
   ambition: string;
@@ -73,6 +75,7 @@ export interface AppState {
   projects: Project[];
   activeProjectId: string | null;
   recoveryReason?: RecoveryReason;
+  coachProvider: CoachProviderId;
 }
 
 export interface InvitationDraft {
@@ -83,7 +86,7 @@ export interface InvitationDraft {
 }
 
 export interface CoachProvider {
-  generateInvitation(project: Project, ctx: { missedYesterday: boolean }): Promise<InvitationDraft>;
+  generateInvitation(project: Project, ctx: { missedLastScheduled: boolean }): Promise<InvitationDraft>;
   assist(project: Project, session: Session, ask: string, level: AssistLevel): Promise<string>;
   closeoutQuestion(project: Project, session: Session): Promise<string>;
 }

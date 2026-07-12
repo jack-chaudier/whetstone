@@ -12,5 +12,5 @@ const project = {
   sessions: [{ id: 'last', projectId: 'demo-novel', invitationId: 'last-invitation', startedAt: new Date().toISOString(), endedAt: new Date().toISOString(), work: 'Mara lied.', sources: '', wordsProduced: 2, coachExchanges: [], kind: 'work', reflection: { changed: 'Mara lied to her brother.', surprised: 'The lie came easily.' }, reentry: 'Write Tomas’s first reaction to the lie.' }],
 };
 
-const invitation = await new ScriptedCoachProvider().generateInvitation(project, { missedYesterday: false });
+const invitation = await new ScriptedCoachProvider().generateInvitation(project, { missedLastScheduled: false });
 console.log(JSON.stringify(invitation, null, 2));

@@ -63,7 +63,7 @@ export default function OnboardingPage() {
   async function confirm() {
     setWorking(true);
     const skeleton = { id: 'onboarding', covenant, invitations: [], sessions: [], threads: [], createdAt: covenant.createdAt };
-    const invitation = await new ScriptedCoachProvider().generateInvitation(skeleton, { missedYesterday: false });
+    const invitation = await new ScriptedCoachProvider().generateInvitation(skeleton, { missedLastScheduled: false });
     create(covenant, invitation);
     router.push('/');
   }

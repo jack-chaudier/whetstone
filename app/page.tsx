@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AppShell } from '@/components/app-shell';
 import { useApp } from '@/components/app-provider';
-import { missedYesterday as projectMissedYesterday } from '@/lib/store/repo';
+import { isScheduledDay, missedLastScheduled, nextScheduledDayAfter } from '@/lib/store/repo';
 import type { DeclineReason, Invitation, RecoveryReason } from '@/lib/types';
 import { formatLongDate, localDate, sessionDate, shiftDate } from '@/lib/utils';
 
@@ -23,16 +23,18 @@ export default function TodayPage() {
 }
 
 function TodayContent() {
-  const { project, start, decline, resize, recover } = useApp();
+  const { project, start, decline, resize, recover, workAnyway } = useApp();
   const router = useRouter();
   const [declining, setDeclining] = useState(false);
   const [declineReason, setDeclineReason] = useState<DeclineReason | null>(null);
   const [recoveryReason, setRecoveryReason] = useState<RecoveryReason | null>(null);
+  const [preparing, setPreparing] = useState(false);
   if (!project) return null;
   const invitation = project.invitations.find((item) => item.date === localDate()) ?? null;
   const todaySession = invitation ? project.sessions.find((session) => session.invitationId === invitation.id && session.endedAt) : null;
   const inProgressSession = invitation ? project.sessions.find((session) => session.invitationId === invitation.id && !session.endedAt) : null;
-  const missedYesterday = projectMissedYesterday(project);
+  const scheduledToday = isScheduledDay(project.covenant, localDate());
+  const needsRecovery = scheduledToday && missedLastScheduled(project);
 
   function begin(kind: 'work' | 'recovery' = 'work') {
     if (!invitation) return;
@@ -48,14 +50,14 @@ function TodayContent() {
       <header className="today-header enter"><p className="eyebrow">{formatLongDate(localDate())}</p><h1 className="display">{greeting()}</h1></header>
       {todaySession ? <CompletedState words={todaySession.wordsProduced} /> : invitation?.status === 'declined' ? (
         <DeclinedCard onBegin={() => begin('recovery')} resume={Boolean(inProgressSession)} />
-      ) : missedYesterday ? (
+      ) : needsRecovery ? (
         <RecoveryCard invitation={invitation} reason={recoveryReason} onReason={chooseRecovery} onBegin={() => begin('recovery')} resume={Boolean(inProgressSession)} />
       ) : invitation ? (
         <>
           <InvitationCard invitation={invitation} onBegin={() => begin()} onSmaller={() => resize(invitation.id)} onDecline={() => setDeclining(true)} resume={Boolean(inProgressSession)} />
           {declining && <DeclineSheet reason={declineReason} onChoose={chooseDecline} onMicro={() => begin('recovery')} onClose={() => setDeclining(false)} />}
         </>
-      ) : <QuietState />}
+      ) : !scheduledToday ? <RestState project={project} preparing={preparing} onWorkAnyway={async () => { setPreparing(true); await workAnyway(); setPreparing(false); }} /> : <QuietState />}
       <ContinuityStrip project={project} />
     </main>
   );
@@ -90,6 +92,14 @@ function CompletedState({ words }: { words: number }) {
   return <section className="surface hero-card completed-card enter"><span className="completion-mark" aria-hidden="true" /><p className="eyebrow">Today</p><h2 className="display">Today’s work is done.</h2><p>The world waits for you tomorrow.</p><span className="mono">{words.toLocaleString()} human words added</span></section>;
 }
 
+function RestState({ project, preparing, onWorkAnyway }: { project: NonNullable<ReturnType<typeof useApp>['project']>; preparing: boolean; onWorkAnyway: () => Promise<void> }) {
+  const nextDate = nextScheduledDayAfter(project.covenant);
+  const next = nextDate
+    ? `${new Intl.DateTimeFormat('en-US', { weekday: 'long' }).format(new Date(`${nextDate}T12:00:00`))} ${project.covenant.schedule.window}`
+    : 'the next scheduled return';
+  return <section className="rest-state enter"><p className="eyebrow">Rest day</p><h2 className="display">Nothing is asked of you today.</h2><p>The work will keep until {next}.</p><button className="quiet" disabled={preparing} onClick={onWorkAnyway}>{preparing ? 'Preparing a quiet invitation' : 'Work anyway'}</button></section>;
+}
+
 function QuietState() { return <section className="surface hero-card completed-card"><h2 className="display">Nothing prepared yet.</h2><p>The next invitation will be made from the work, not from a generic plan.</p></section>; }
 
 function ContinuityStrip({ project }: { project: NonNullable<ReturnType<typeof useApp>['project']> }) {
@@ -100,9 +110,16 @@ function ContinuityStrip({ project }: { project: NonNullable<ReturnType<typeof u
     if (session) return 'worked';
     const invitation = project.invitations.find((item) => item.date === date);
     if (invitation?.status === 'declined') return 'declined';
+    if (!isScheduledDay(project.covenant, date)) return 'rest';
     if (date < localDate()) return 'missed';
     return 'future';
   });
-  const lastSeven = statuses.slice(-7).filter((status) => status === 'worked' || status === 'recovered').length;
-  return <section className="continuity-strip" aria-labelledby="continuity-title"><div><h2 id="continuity-title" className="eyebrow">Continuity</h2><p>Returned {lastSeven} of the last 7 days.</p></div><div className="continuity-squares" aria-hidden="true">{statuses.map((status, index) => <span key={days[index]} className={status} />)}</div><ul className="sr-only">{statuses.map((status, index) => <li key={days[index]}>{formatLongDate(days[index])}: {status}</li>)}</ul><div className="continuity-legend"><span><i className="worked" />worked</span><span><i className="recovered" />returned</span><span><i className="declined" />declined</span><span><i className="missed" />missed</span></div></section>;
+  const windowStart = shiftDate(-6);
+  const recent = days.map((date, index) => ({ date, status: statuses[index] })).filter(({ date }) => date >= windowStart && date <= localDate());
+  const scheduledRecent = recent.filter(({ date }) => isScheduledDay(project.covenant, date));
+  const returned = scheduledRecent.filter(({ status }) => status === 'worked' || status === 'recovered').length;
+  const summary = scheduledRecent.length > 0
+    ? `Returned ${returned} of ${scheduledRecent.length} scheduled ${scheduledRecent.length === 1 ? 'day' : 'days'} in the last week.`
+    : 'A quiet week, by design.';
+  return <section className="continuity-strip" aria-labelledby="continuity-title"><div><h2 id="continuity-title" className="eyebrow">Continuity</h2><p>{summary}</p></div><div className="continuity-squares" aria-hidden="true">{statuses.map((status, index) => <span key={days[index]} className={status} />)}</div><p className="sr-only">{summary} Unscheduled days are rest days.</p><ul className="sr-only">{statuses.map((status, index) => <li key={days[index]}>{formatLongDate(days[index])}: {status}</li>)}</ul><div className="continuity-legend"><span><i className="worked" />worked</span><span><i className="recovered" />returned</span><span><i className="declined" />declined</span><span><i className="missed" />missed</span><span><i className="rest" />rest</span></div></section>;
 }

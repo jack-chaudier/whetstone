@@ -1,8 +1,8 @@
-import type { AppState, Covenant, DeclineReason, Invitation, InvitationDraft, Project, RecoveryReason, Session } from '@/lib/types';
-import { localDate, sessionDate, shiftDate, uid, wordCount } from '@/lib/utils';
+import type { AppState, CoachProviderId, Covenant, DeclineReason, Invitation, InvitationDraft, Project, RecoveryReason, Session } from '@/lib/types';
+import { localDate, sessionDate, shiftDate, uid, weekdayForDate, wordCount } from '@/lib/utils';
 
 export const STORE_KEY = 'whetstone:v1';
-export const EMPTY_STATE: AppState = { version: 1, projects: [], activeProjectId: null };
+export const EMPTY_STATE: AppState = { version: 1, projects: [], activeProjectId: null, coachProvider: 'scripted' };
 
 function canStore(): boolean {
   return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined';
@@ -15,7 +15,7 @@ export function loadState(): AppState {
   try {
     const parsed: unknown = JSON.parse(raw);
     if (!isValidState(parsed)) return EMPTY_STATE;
-    return { ...parsed, version: 1 };
+    return { ...parsed, version: 1, coachProvider: isCoachProvider(parsed.coachProvider) ? parsed.coachProvider : 'scripted' };
   } catch {
     return EMPTY_STATE;
   }
@@ -41,16 +41,16 @@ export function createProject(state: AppState, covenant: Covenant, firstDraft: I
   const project: Project = {
     id: projectId,
     covenant,
-    invitations: [draftToInvitation(firstDraft, projectId, localDate())],
+    invitations: isScheduledDay(covenant, localDate()) ? [draftToInvitation(firstDraft, projectId, localDate())] : [],
     sessions: [],
     threads: [],
     createdAt: new Date().toISOString(),
   };
-  return saveState({ version: 1, projects: [...state.projects, project], activeProjectId: projectId });
+  return saveState({ ...state, version: 1, projects: [...state.projects, project], activeProjectId: projectId });
 }
 
-export function replaceWithProject(project: Project): AppState {
-  return saveState({ version: 1, projects: [project], activeProjectId: project.id });
+export function addProject(state: AppState, project: Project): AppState {
+  return saveState({ ...state, projects: [...state.projects.filter((item) => item.id !== project.id), project], activeProjectId: project.id });
 }
 
 export function todayInvitation(project: Project): Invitation | null {
@@ -71,16 +71,42 @@ export function addInvitation(state: AppState, projectId: string, draft: Invitat
 
 export function ensureTodayInvitation(state: AppState, projectId: string, draft: InvitationDraft, date = localDate()): AppState {
   const project = state.projects.find((item) => item.id === projectId);
-  if (!project || project.invitations.some((invitation) => invitation.date === date)) return state;
+  if (!project || !isScheduledDay(project.covenant, date) || project.invitations.some((invitation) => invitation.date === date)) return state;
   return addInvitation(state, projectId, draft, date);
 }
 
-export function missedYesterday(project: Project, today = localDate()): boolean {
-  const yesterday = shiftDate(-1, new Date(`${today}T12:00:00`));
-  if (sessionDate(project.createdAt) > yesterday) return false;
-  const yesterdayInvitation = project.invitations.find((item) => item.date === yesterday);
-  const completedYesterday = project.sessions.some((session) => sessionDate(session.startedAt) === yesterday && session.endedAt);
-  return !completedYesterday && yesterdayInvitation?.status !== 'declined';
+export function isScheduledDay(covenant: Covenant, date: string): boolean {
+  return covenant.schedule.days.includes(weekdayForDate(date));
+}
+
+export function lastScheduledDayBefore(covenant: Covenant, today = localDate()): string | null {
+  const base = new Date(`${today}T12:00:00`);
+  for (let daysAgo = 1; daysAgo <= 7; daysAgo += 1) {
+    const date = shiftDate(-daysAgo, base);
+    if (isScheduledDay(covenant, date)) return date;
+  }
+  return null;
+}
+
+export function nextScheduledDayAfter(covenant: Covenant, date = localDate()): string | null {
+  const base = new Date(`${date}T12:00:00`);
+  for (let daysAhead = 1; daysAhead <= 7; daysAhead += 1) {
+    const candidate = shiftDate(daysAhead, base);
+    if (isScheduledDay(covenant, candidate)) return candidate;
+  }
+  return null;
+}
+
+export function missedLastScheduled(project: Project, today = localDate()): boolean {
+  const scheduledDate = lastScheduledDayBefore(project.covenant, today);
+  if (!scheduledDate || sessionDate(project.createdAt) > scheduledDate) return false;
+  const invitation = project.invitations.find((item) => item.date === scheduledDate);
+  const completed = project.sessions.some((session) => sessionDate(session.startedAt) === scheduledDate && session.endedAt);
+  return !completed && invitation?.status !== 'declined';
+}
+
+export function setCoachProvider(state: AppState, coachProvider: CoachProviderId): AppState {
+  return saveState({ ...state, coachProvider });
 }
 
 export function resizeInvitation(state: AppState, projectId: string, invitationId: string): AppState {
@@ -120,6 +146,10 @@ export function startSession(state: AppState, projectId: string, invitationId: s
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isCoachProvider(value: unknown): value is CoachProviderId {
+  return value === 'scripted' || value === 'anthropic' || value === 'openai' || value === 'xai';
 }
 
 function isValidProject(value: unknown): value is Project {

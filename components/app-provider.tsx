@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { generateInvitation } from '@/lib/coach/client';
-import type { AppState, Covenant, DeclineReason, InvitationDraft, Project, RecoveryReason, Session } from '@/lib/types';
+import type { AppState, CoachProviderId, Covenant, DeclineReason, InvitationDraft, Project, RecoveryReason, Session } from '@/lib/types';
 import { localDate } from '@/lib/utils';
 import * as repo from '@/lib/store/repo';
 import { createDemoProject } from '@/lib/store/demo';
@@ -24,6 +24,8 @@ interface AppContextValue {
   revise: (covenant: Covenant) => void;
   toggleThread: (threadId: string) => void;
   schedule: (draft: InvitationDraft, date: string) => void;
+  workAnyway: () => Promise<void>;
+  setCoachProvider: (provider: CoachProviderId) => void;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -50,12 +52,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!ready || !project) return;
     const date = localDate();
-    if (project.invitations.some((invitation) => invitation.date === date)) return;
+    if (!repo.isScheduledDay(project.covenant, date) || project.invitations.some((invitation) => invitation.date === date)) return;
     const key = `${project.id}:${date}`;
     if (ensuringInvitations.current.has(key)) return;
     ensuringInvitations.current.add(key);
 
-    void generateInvitation(project, repo.missedYesterday(project, date))
+    void generateInvitation(project, repo.missedLastScheduled(project, date), state.coachProvider)
       .then((draft) => {
         setInternalState((current) => {
           const currentProject = repo.activeProject(current);
@@ -65,10 +67,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       })
       .catch(() => undefined)
       .finally(() => ensuringInvitations.current.delete(key));
-  }, [project, ready]);
+  }, [project, ready, state.coachProvider]);
 
   const setState = useCallback((next: AppState) => setInternalState(next), []);
-  const seedDemo = useCallback(() => setInternalState(repo.replaceWithProject(createDemoProject())), []);
+  const seedDemo = useCallback(() => setInternalState((current) => repo.addProject(current, createDemoProject())), []);
   const create = useCallback((covenant: Covenant, draft: InvitationDraft) => {
     setInternalState((current) => repo.createProject(current, covenant, draft));
   }, []);
@@ -121,11 +123,28 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return currentProject ? repo.addInvitation(current, currentProject.id, draft, date) : current;
     });
   }, []);
+  const workAnyway = useCallback(async () => {
+    const current = stateRef.current;
+    const currentProject = repo.activeProject(current);
+    if (!currentProject) return;
+    const date = localDate();
+    if (currentProject.invitations.some((invitation) => invitation.date === date)) return;
+    const draft = await generateInvitation(currentProject, false, current.coachProvider);
+    setInternalState((latest) => {
+      const latestProject = repo.activeProject(latest);
+      return latestProject?.id === currentProject.id
+        ? repo.addInvitation(latest, latestProject.id, draft, date)
+        : latest;
+    });
+  }, []);
+  const setCoachProvider = useCallback((provider: CoachProviderId) => {
+    setInternalState((current) => repo.setCoachProvider(current, provider));
+  }, []);
 
   const value = useMemo<AppContextValue>(() => ({
     state, project, ready, setState, seedDemo, create, clear, start, saveDraft, finish,
-    decline, resize, recover, revise, toggleThread, schedule,
-  }), [state, project, ready, setState, seedDemo, create, clear, start, saveDraft, finish, decline, resize, recover, revise, toggleThread, schedule]);
+    decline, resize, recover, revise, toggleThread, schedule, workAnyway, setCoachProvider,
+  }), [state, project, ready, setState, seedDemo, create, clear, start, saveDraft, finish, decline, resize, recover, revise, toggleThread, schedule, workAnyway, setCoachProvider]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }

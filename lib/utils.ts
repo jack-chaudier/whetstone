@@ -16,6 +16,10 @@ export function shiftDate(days: number, from = new Date()): string {
   return localDate(date);
 }
 
+export function weekdayForDate(date: string): number {
+  return new Date(`${date}T12:00:00`).getDay();
+}
+
 export function uid(prefix: string): string {
   const id = typeof crypto !== 'undefined' && 'randomUUID' in crypto
     ? crypto.randomUUID()
