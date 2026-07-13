@@ -168,7 +168,7 @@ export function CoachProviderPicker({ selected, onChange, showCheck = true, lege
 
   return <>
     <fieldset className="provider-list"><legend className="sr-only">{legend}</legend>
-      <ProviderOption id="scripted" checked={selected === 'scripted'} disabled={disabled} onChange={onChange} label="Tenzon scripted" detail="deterministic · offline · always available" />
+      <ProviderOption id="scripted" checked={selected === 'scripted'} disabled={disabled} onChange={onChange} label="Tenzon scripted" detail="offline, always available" />
       {COACH_MODELS.map((model) => {
         const status = providerStatus?.[model.id];
         return <ProviderOption
@@ -178,8 +178,8 @@ export function CoachProviderPicker({ selected, onChange, showCheck = true, lege
           disabled={disabled || !status?.configured}
           onChange={onChange}
           label={model.label}
-          detail={model.id === 'xai-oauth' ? 'your xAI subscription' : `${model.vendor} · ${model.model}`}
-          hint={providerHint(status, model.id === 'xai-oauth' ? oauthConfigured : null)}
+          detail={model.id === 'xai-oauth' ? 'your xAI subscription' : model.vendor}
+          hint={providerHint(status, model.envKey, model.id === 'xai-oauth' ? oauthConfigured : null)}
           status={status?.status}
         />;
       })}
@@ -193,12 +193,12 @@ function indexProviderStatus(providers: ProviderStatus[]): Record<ApiCoachProvid
   return Object.fromEntries(providers.map((provider) => [provider.id, provider])) as Record<ApiCoachProvider, ProviderStatus>;
 }
 
-function providerHint(status?: ProviderStatus, oauthConfigured: boolean | null = null): string {
-  if (!status) return 'Checking runtime configuration';
-  if (oauthConfigured === false) return 'OAuth is not configured in this environment';
+function providerHint(status?: ProviderStatus, envKey?: string, oauthConfigured: boolean | null = null): string {
+  if (!status) return 'Checking which coaches are available';
+  if (oauthConfigured === false) return 'Subscription connection is not available here';
   if (status.id === 'xai-oauth' && status.status === 'missing') return 'Connect your subscription below';
-  if (status.status === 'missing') return 'Not configured in this environment';
-  if (status.status === 'configured') return 'Configured · ready for a live check';
+  if (status.status === 'missing') return envKey ? `Add ${envKey} to the environment` : 'This connection is not available';
+  if (status.status === 'configured') return 'Available';
   if (status.status === 'connected') return `Connected${status.latencyMs ? ` in ${status.latencyMs} ms` : ''}`;
   const labels: Record<Exclude<ProviderCheckStatus, 'missing' | 'configured' | 'connected'>, string> = {
     invalid_credentials: 'Could not authenticate',
@@ -214,7 +214,7 @@ function providerHint(status?: ProviderStatus, oauthConfigured: boolean | null =
 function OAuthConnectRow({ state, device, onStart, onDisconnect, disabled }: { state: OAuthState; device: OAuthDevice | null; onStart: () => Promise<void>; onDisconnect: () => Promise<void>; disabled: boolean }) {
   let content: React.ReactNode;
   if (state === 'not-configured') {
-    content = <p className="oauth-message">Subscription connection is not enabled in this environment.</p>;
+    content = <p className="oauth-message">This subscription connection is not available here.</p>;
   } else if (state === 'connected') {
     content = <div className="oauth-actions"><span>Connected.</span><button type="button" className="quiet" disabled={disabled} onClick={() => void onDisconnect()}>Disconnect</button></div>;
   } else if (state === 'waiting' && device) {
@@ -230,7 +230,7 @@ function OAuthConnectRow({ state, device, onStart, onDisconnect, disabled }: { s
     content = <button type="button" className="quiet" disabled={disabled || state === 'loading' || state === 'starting'} onClick={() => void onStart()}>{state === 'starting' ? 'Starting the connection' : 'Connect your Grok subscription'}</button>;
   }
 
-  return <div className="oauth-connect-row"><div>{content}</div><p className="oauth-honesty">Uses the Grok CLI&apos;s public client. Tiers outside xAI&apos;s allowlist may be refused.</p></div>;
+  return <div className="oauth-connect-row"><div>{content}</div><p className="oauth-honesty">Uses your Grok subscription. xAI may refuse some subscription plans.</p></div>;
 }
 
 function ProviderOption({ id, checked, disabled = false, onChange, label, detail, hint, status }: { id: CoachProviderId; checked: boolean; disabled?: boolean; onChange: (provider: CoachProviderId) => void; label: string; detail: string; hint?: string; status?: ProviderCheckStatus }) {

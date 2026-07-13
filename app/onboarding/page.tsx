@@ -70,7 +70,7 @@ export default function OnboardingPage() {
     createdAt: '',
   }), [draft]);
 
-  if (!ready) return <main className="page"><p className="display" style={{ fontSize: 24 }}>Preparing a clear page.</p></main>;
+  if (!ready) return <main className="page"><p className="display" style={{ fontSize: 24 }}>Preparing the first question.</p></main>;
 
   async function beginConversation() {
     if (!selectedProvider || working) return;
@@ -179,41 +179,45 @@ export default function OnboardingPage() {
         : <Link href={state.projects.length ? '/' : '/onboarding'} className="wordmark" aria-label="Tenzon home">Tenzon<span className="wordmark-dot">.</span></Link>}
       <div className="setup-header-context">
         <span className="eyebrow">New project</span>
-        {stage === 'conversation' && <span className="setup-model">Speaking with {modelLabel}</span>}
       </div>
       {state.projects.length > 0
-        ? working ? <span className="quiet" aria-disabled="true">Cancel and return</span> : <Link href="/" className="quiet">Cancel and return</Link>
+        ? working ? <span className="quiet" aria-disabled="true">Cancel</span> : <Link href="/" className="quiet">Cancel</Link>
         : <span />}
     </header>
 
     {stage === 'choose' ? <section className="setup-choose" aria-labelledby="setup-title">
-      <div className="setup-intro enter"><p className="eyebrow">Tenzon</p><h1 id="setup-title" className="display">Choose who should help you set this project up.</h1><p>This will be one conversation. The selected coach will respond to each answer while Tenzon renders and validates the questions.</p></div>
+      <div className="setup-intro enter"><p className="eyebrow">Tenzon</p><h1 id="setup-title" className="display">Choose who should help you set this project up.</h1><p>One conversation, nine questions. Your answers become the covenant, and you can revise it later.</p></div>
       <div className="surface setup-provider-card enter">
-        <CoachProviderPicker selected={selectedProvider} onChange={setSelectedProvider} legend="Choose a setup model" disabled={working} />
+        <CoachProviderPicker selected={selectedProvider} onChange={setSelectedProvider} showCheck={false} legend="Choose a setup model" disabled={working} />
       </div>
       {error && <ErrorNotice message={error} onSwitch={() => {
         setSelectedProvider(null);
         setError(null);
       }} />}
-      <div className="setup-choose-actions"><button type="button" className="button button-primary" disabled={!selectedProvider || working} onClick={() => void beginConversation()}>{working ? `Waiting for ${modelLabel}` : selectedProvider ? `Begin with ${modelLabel}` : 'Choose a coach'}</button>{state.projects.length === 0 && <button type="button" className="quiet" disabled={working} onClick={chooseDemo}>Explore with a demo project</button>}</div>
+      <div className="setup-choose-actions"><button type="button" className="button button-primary" disabled={!selectedProvider || working} onClick={() => void beginConversation()}>{working ? 'Preparing the first question' : selectedProvider ? `Begin with ${modelLabel}` : 'Choose a coach'}</button>{state.projects.length === 0 && <button type="button" className="quiet" disabled={working} onClick={chooseDemo}>Explore with a demo project</button>}</div>
     </section> : <section className="setup-conversation" aria-label="Project setup conversation">
       <div ref={transcriptRef} className="setup-transcript" role="log" aria-live="polite" aria-relevant="additions text">
-        {turns.map((turn, index) => turn.role === 'user'
-          ? <article key={turn.id} className="setup-turn setup-user-turn"><p className="eyebrow">You</p><p>{turn.text}</p></article>
-          : <article key={turn.id} className="setup-turn setup-coach-turn enter"><p className="eyebrow">{modelLabel}</p><p className="setup-reply">{turn.response?.reply}</p><h2 ref={index === turns.length - 1 ? questionRef : undefined} tabIndex={index === turns.length - 1 ? -1 : undefined} className="display">{turn.response?.question}</h2><p className="setup-question-note">{turn.response?.note}</p></article>)}
-        {working && <article className="setup-turn setup-coach-turn setup-thinking"><p className="eyebrow">{modelLabel}</p><p>Considering the next useful question.</p></article>}
+        <div className="setup-transcript-inner">
+          {turns.map((turn, index) => {
+            const isReview = step === 'review' && index === turns.length - 1 && turn.role === 'coach';
+            return turn.role === 'user'
+              ? <article key={turn.id} className="setup-turn setup-user-turn"><p className="eyebrow">You</p><p>{turn.text}</p></article>
+              : <article key={turn.id} className={`setup-turn setup-coach-turn enter ${isReview ? 'setup-review-turn' : ''}`}><p className="eyebrow">{modelLabel}</p><p className="setup-reply">{turn.response?.reply}</p><h2 ref={index === turns.length - 1 ? questionRef : undefined} tabIndex={index === turns.length - 1 ? -1 : undefined} className="display">{turn.response?.question}</h2><p className="setup-question-note">{turn.response?.note}</p>{isReview && <CovenantReview covenant={covenant} />}</article>;
+          })}
+          {working && <article className="setup-turn setup-coach-turn setup-thinking"><p className="eyebrow">{modelLabel}</p><p>Preparing the next question.</p></article>}
+        </div>
       </div>
 
       <div className="setup-composer-wrap">
         <div className="setup-composer surface">
-          <p className="eyebrow">Question {stepIndex + 1} of {SETUP_STEPS.length}</p>
+          <p className="eyebrow">Question {stepIndex + 1} of {SETUP_STEPS.length} — {modelLabel}</p>
           <SetupControl step={step} draft={draft} covenant={covenant} update={update} disabled={working} />
           {error && <ErrorNotice message={error} onSwitch={startOverWithAnotherModel} />}
           <div className="setup-composer-actions">
             <button type="button" className="quiet" disabled={working} onClick={startOverWithAnotherModel}>Choose another model</button>
             {step === 'review'
               ? <button type="button" className="button button-primary" disabled={working || !draft.milestone.trim()} onClick={() => void confirmProject()}>{working ? 'Preparing the first invitation' : 'Create this project'}</button>
-              : <button type="button" className="button button-primary" disabled={working} onClick={() => void submitCurrent()}>{working ? `Waiting for ${modelLabel}` : 'Send answer'}</button>}
+              : <button type="button" className="button button-primary" disabled={working} onClick={() => void submitCurrent()}>{working ? 'Preparing the next question' : 'Continue'}</button>}
           </div>
         </div>
       </div>
@@ -240,7 +244,23 @@ function SetupControl({ step, draft, covenant, update, disabled }: { step: Setup
 
   if (step === 'tone') return <fieldset className="setup-fieldset"><legend className="sr-only">Coach tone</legend><div className="choice-grid">{toneCopy.map((item) => <ChoiceCard key={item.value} name="coach-tone" selected={draft.tone === item.value} title={item.title} text={item.text} disabled={disabled} onChange={() => update('tone', item.value)} />)}</div></fieldset>;
 
-  return <article className="covenant-preview"><p className="display covenant-ambition">{covenant.ambition}</p><p>{covenant.why}</p><dl><div><dt>For now</dt><dd>{draft.milestone}</dd></div><div><dt>The work remains human</dt><dd>{covenant.humanOwned.join(', ')}</dd></div><div><dt>The coach may help with</dt><dd>{covenant.delegable.join(', ') || 'nothing delegated yet'}</dd></div><div><dt>The honest schedule</dt><dd>{covenant.schedule.days.map((day) => dayNames[day]).join(', ')}, {covenant.schedule.window}, about {covenant.schedule.minutes} minutes</dd></div><div><dt>Coach voice</dt><dd>{covenant.tone}</dd></div></dl></article>;
+  return null;
+}
+
+function CovenantReview({ covenant }: { covenant: Covenant }) {
+  return <div className="covenant-preview"><p className="display covenant-ambition">{covenant.ambition}</p><p>{covenant.why}</p><dl><div><dt>For now</dt><dd>{covenant.milestone}</dd></div><div><dt>The work remains human</dt><dd>{joinHuman(covenant.humanOwned)}</dd></div><div><dt>The coach may help with</dt><dd>{joinHuman(covenant.delegable) || 'nothing delegated yet'}</dd></div><div><dt>The honest schedule</dt><dd>{humanSchedule(covenant)}</dd></div><div><dt>Coach voice</dt><dd>{covenant.tone}</dd></div></dl></div>;
+}
+
+function humanSchedule(covenant: Covenant): string {
+  const days = joinHuman(covenant.schedule.days.map((day) => dayNames[day]));
+  const window = covenant.schedule.days.length === 1 ? covenant.schedule.window : `${covenant.schedule.window}s`;
+  return `${days} ${window}, about ${covenant.schedule.minutes} minutes`;
+}
+
+function joinHuman(items: string[]): string {
+  if (items.length < 2) return items[0] ?? '';
+  if (items.length === 2) return `${items[0]} and ${items[1]}`;
+  return `${items.slice(0, -1).join(', ')}, and ${items.at(-1)}`;
 }
 
 function ChoiceCard({ name, selected, title, text, disabled, onChange }: { name: string; selected: boolean; title: string; text: string; disabled: boolean; onChange: () => void }) {

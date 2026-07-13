@@ -141,6 +141,35 @@ export function nextScheduledDayAfter(covenant: Covenant, date = localDate()): s
   return null;
 }
 
+export type ContinuityStatus = 'worked' | 'recovered' | 'declined' | 'missed' | 'rest' | 'future' | 'open' | 'before-project';
+
+export function continuitySummary(
+  project: Pick<Project, 'covenant' | 'createdAt'>,
+  entries: { date: string; status: ContinuityStatus }[],
+  rangeLabel: string,
+  today = localDate(),
+): string {
+  const created = sessionDate(project.createdAt);
+  const elapsed = entries.filter(({ date, status }) => date >= created
+    && date <= today
+    && isScheduledDay(project.covenant, date)
+    && status !== 'future'
+    && status !== 'open'
+    && status !== 'before-project');
+
+  if (elapsed.length > 0) {
+    const returned = elapsed.filter(({ status }) => status === 'worked' || status === 'recovered').length;
+    return `Returned ${returned} of ${elapsed.length} scheduled ${elapsed.length === 1 ? 'day' : 'days'} ${rangeLabel}.`;
+  }
+
+  const firstDate = isScheduledDay(project.covenant, today)
+    ? today
+    : nextScheduledDayAfter(project.covenant, today);
+  if (!firstDate) return 'No scheduled days are set yet.';
+  const weekday = new Intl.DateTimeFormat('en-US', { weekday: 'long' }).format(new Date(`${firstDate}T12:00:00`));
+  return `The first scheduled day is ${weekday} ${project.covenant.schedule.window}.`;
+}
+
 export function missedLastScheduled(project: Project, today = localDate()): boolean {
   const scheduledDate = lastScheduledDayBefore(project.covenant, today);
   if (!scheduledDate || sessionDate(project.createdAt) > scheduledDate) return false;

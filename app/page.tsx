@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AppShell } from '@/components/app-shell';
 import { useApp } from '@/components/app-provider';
-import { isScheduledDay, missedLastScheduled, nextScheduledDayAfter } from '@/lib/store/repo';
+import { continuitySummary, isScheduledDay, missedLastScheduled, nextScheduledDayAfter, type ContinuityStatus } from '@/lib/store/repo';
 import type { DeclineReason, Invitation, RecoveryReason } from '@/lib/types';
 import { formatLongDate, localDate, sessionDate, shiftDate } from '@/lib/utils';
 
@@ -104,7 +104,9 @@ function QuietState() { return <section className="surface hero-card completed-c
 
 function ContinuityStrip({ project }: { project: NonNullable<ReturnType<typeof useApp>['project']> }) {
   const days = Array.from({ length: 14 }, (_, index) => shiftDate(index - 13));
-  const statuses = days.map((date) => {
+  const created = sessionDate(project.createdAt);
+  const statuses: ContinuityStatus[] = days.map((date) => {
+    if (date < created) return 'before-project';
     const session = project.sessions.find((item) => sessionDate(item.startedAt) === date && item.endedAt);
     if (session?.kind === 'recovery') return 'recovered';
     if (session) return 'worked';
@@ -116,10 +118,6 @@ function ContinuityStrip({ project }: { project: NonNullable<ReturnType<typeof u
   });
   const windowStart = shiftDate(-6);
   const recent = days.map((date, index) => ({ date, status: statuses[index] })).filter(({ date }) => date >= windowStart && date <= localDate());
-  const scheduledRecent = recent.filter(({ date }) => isScheduledDay(project.covenant, date));
-  const returned = scheduledRecent.filter(({ status }) => status === 'worked' || status === 'recovered').length;
-  const summary = scheduledRecent.length > 0
-    ? `Returned ${returned} of ${scheduledRecent.length} scheduled ${scheduledRecent.length === 1 ? 'day' : 'days'} in the last week.`
-    : 'A quiet week, by design.';
+  const summary = continuitySummary(project, recent, 'in the last week');
   return <section className="continuity-strip" aria-labelledby="continuity-title"><div><h2 id="continuity-title" className="eyebrow">Continuity</h2><p>{summary}</p></div><div className="continuity-squares" aria-hidden="true">{statuses.map((status, index) => <span key={days[index]} className={status} />)}</div><p className="sr-only">{summary} Unscheduled days are rest days.</p><ul className="sr-only">{statuses.map((status, index) => <li key={days[index]}>{formatLongDate(days[index])}: {status}</li>)}</ul><div className="continuity-legend"><span><i className="worked" />worked</span><span><i className="recovered" />returned</span><span><i className="declined" />declined</span><span><i className="missed" />missed</span><span><i className="rest" />rest</span></div></section>;
 }

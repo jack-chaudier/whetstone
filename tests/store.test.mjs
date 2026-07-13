@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
-import { EMPTY_STATE, STORE_KEY, createProject, deleteProject, loadState, selectProject, setProjectCoachProvider } from '../lib/store/repo.ts';
+import { EMPTY_STATE, STORE_KEY, continuitySummary, createProject, deleteProject, loadState, selectProject, setProjectCoachProvider } from '../lib/store/repo.ts';
+import { ScriptedCoachProvider } from '../lib/coach/scripted.mjs';
 
 const values = new Map();
 const localStorage = {
@@ -121,5 +122,40 @@ describe('multi-project repository', () => {
       activeProjectId: 'one',
     };
     expect(deleteProject(state, 'two').activeProjectId).toBe('one');
+  });
+});
+
+describe('continuity copy', () => {
+  test('does not count scheduled days before the project began', () => {
+    const newProject = {
+      ...project('new'),
+      createdAt: '2026-07-13T16:00:00.000Z',
+      covenant: { ...covenant, createdAt: '2026-07-13T16:00:00.000Z' },
+    };
+    const entries = [
+      { date: '2026-07-09', status: 'missed' },
+      { date: '2026-07-13', status: 'future' },
+    ];
+
+    expect(continuitySummary(newProject, entries, 'in the last week', '2026-07-13'))
+      .toBe('The first scheduled day is Monday evening.');
+    expect(continuitySummary(newProject, [{ date: '2026-07-13', status: 'worked' }], 'in the last week', '2026-07-13'))
+      .toBe('Returned 1 of 1 scheduled day in the last week.');
+  });
+});
+
+describe('scripted make invitations', () => {
+  test('keeps stop conditions distinct and artifact-neutral', async () => {
+    const coach = new ScriptedCoachProvider();
+    const makeProject = { ...project('make'), covenant };
+    const stopConditions = [];
+
+    for (let index = 0; index < 4; index += 1) {
+      const draft = await coach.generateInvitation({ ...makeProject, invitations: Array.from({ length: index }) }, { missedLastScheduled: false });
+      stopConditions.push(draft.stopCondition);
+    }
+
+    expect(new Set(stopConditions).size).toBe(4);
+    expect(stopConditions.join(' ')).not.toMatch(/character|element/iu);
   });
 });
