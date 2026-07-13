@@ -1,0 +1,83 @@
+# Coach providers
+
+Tenzon has one deterministic local coach and three optional hosted coaches. The hosted model registry is centralized in `lib/coach/models.ts`; the UI, status route, live probes, and coach route all use that same registry.
+
+| Provider | Model ID | Server-side secret | API path |
+| --- | --- | --- | --- |
+| Anthropic | `claude-sonnet-5` | `ANTHROPIC_API_KEY` | Anthropic Messages API |
+| OpenAI | `gpt-5.6-luna` | `OPENAI_API_KEY` | OpenAI Chat Completions API |
+| xAI | `grok-4.5` | `XAI_API_KEY` | xAI Chat Completions API |
+
+Do not prefix these names with `NEXT_PUBLIC_`. The browser never needs the values.
+
+## Request flow
+
+```text
+Covenant model selection (stored in localStorage)
+                    |
+                    v
+lib/coach/client.ts -- POST /api/coach --> validated server route
+                    |                         |
+                    |                         +-- reads one process.env secret
+                    |                         +-- calls the selected exact model
+                    |                         +-- returns generated text or invitation JSON
+                    |
+                    +-- on failure, uses the deterministic scripted coach
+```
+
+Secrets are read only inside server routes. They are never serialized into page props, browser JavaScript, API responses, application logs, the Sites archive, or `.openai/hosting.json`.
+
+The scripted fallback makes the product resilient, but it also means a hosted-provider failure does not stop a work session. Use the connection panel before relying on a hosted coach. A successful check proves the key and exact generation path worked at that moment; it is not a permanent uptime guarantee.
+
+## Data sent to a selected hosted provider
+
+Tenzon stores the full project only in the current browser. It sends a bounded request payload to the selected provider when hosted coaching is used:
+
+| Action | Context sent |
+| --- | --- |
+| Invitation | Covenant, the last two completed-session reflections and re-entry points, open threads, and whether the last scheduled day was missed |
+| Workbench assist | The invitation context above plus the current session, including the human work, imported sources, prior coach exchanges, and the user’s request |
+| Closeout question | Covenant context, session word count, and the final 500 characters of the current work |
+| Connection check | Fixed text: `Reply with OK only.` No project, session, source, or user-authored content |
+
+Project data is wrapped as untrusted data so instructions embedded in sources or drafts are not treated as system instructions. The server also validates request shapes, limits payload size, and deterministically refuses common requests to take over human-owned work.
+
+## Configuration versus connection
+
+`GET /api/coach/status` is free and network-independent. It reports whether each required environment value is present; it does not prove the key is valid.
+
+`POST /api/coach/status` is the manual live check used by **Check all connections** on the Covenant page. It runs the same exact generation adapter and model ID used for coaching. Each configured provider receives one minimal request. Results are independent and sanitized:
+
+- `connected`
+- `missing`
+- `invalid_credentials`
+- `model_unavailable`
+- `rate_limited`
+- `timeout`
+- `provider_error`
+
+The response never includes upstream bodies, headers, key fragments, account details, or project data. Both status responses use `Cache-Control: no-store`.
+
+## Local secrets
+
+Copy `.env.example` to `.dev.vars`, add only the providers needed locally, and restart the development server. Vinext's Cloudflare Worker runtime reads `.dev.vars`; the file is ignored by Git.
+
+```bash
+cp .env.example .dev.vars
+npm run dev
+```
+
+Use the Covenant page to confirm the secret is configured, then run the live check. Do not commit `.dev.vars`.
+
+## GPT Sites secrets
+
+Local `.dev.vars` values do not deploy. Add the three names as Sites production runtime variables, mark every value as secret, then save and deploy a version against that environment revision. `.openai/hosting.json` contains only the Sites project ID and optional logical storage bindings.
+
+After adding or rotating a secret:
+
+1. Update the Sites runtime variable with `is_secret: true`.
+2. Save and deploy a site version so the new environment revision is active.
+3. Confirm the variable name is present and redacted in Sites.
+4. Open the private site and run **Check all connections**.
+
+The current coach routes have no app-level public-user quota. Keep the deployment private. Before making it public, add authenticated authorization and rate limiting to `/api/coach` and the live-check action.

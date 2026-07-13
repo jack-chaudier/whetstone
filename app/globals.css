@@ -196,6 +196,15 @@ textarea.field { resize: vertical; }
 .provider-option strong { color: var(--ink); font-weight: 500; }
 .provider-option small { display: block; margin-top: 3px; color: var(--ink-faint); font-size: 10px; }
 .provider-option.disabled { cursor: not-allowed; opacity: .48; }
+.provider-copy { min-width: 0; }
+.provider-status { position: relative; padding-left: 12px; }
+.provider-status::before { position: absolute; top: 4px; left: 0; width: 6px; height: 6px; border-radius: 50%; background: var(--ink-faint); content: ''; }
+.provider-status.connected { color: var(--moss); }
+.provider-status.connected::before { background: var(--moss); }
+.provider-status.invalid_credentials, .provider-status.model_unavailable, .provider-status.rate_limited, .provider-status.timeout, .provider-status.provider_error { color: #8D3429; }
+.provider-status.invalid_credentials::before, .provider-status.model_unavailable::before, .provider-status.rate_limited::before, .provider-status.timeout::before, .provider-status.provider_error::before { background: #8D3429; }
+.provider-check { display: flex; align-items: center; gap: 14px; margin-top: 18px; }
+.provider-check p { margin: 0; color: var(--ink-faint); font-size: 11px; }
 .danger { color: #8D3429; }
 .delete-title { margin: 8px 0 10px; font-size: 30px; }
 .delete-copy { color: var(--ink-secondary); }
@@ -208,7 +217,7 @@ textarea.field { resize: vertical; }
   .timeline-date { grid-column: 1 / -1; }
   .covenant-document { padding: 12px 24px 30px; }
   .ownership-grid, .schedule-edit { grid-template-columns: 1fr; }
-  .covenant-signature, .data-controls { align-items: flex-start; flex-direction: column; gap: 20px; }
+  .covenant-signature, .data-controls, .provider-check { align-items: flex-start; flex-direction: column; gap: 12px; }
 }
 
 .today-page { padding-top: 64px; }

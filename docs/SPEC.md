@@ -13,18 +13,18 @@ Tone throughout: calm, dry, perceptive, on the user's side. Never guilt. Never s
 
 ## Scope for v0.1
 
-IN: onboarding covenant flow, Today view with daily invitation, workbench session, session closeout, invitation generation from real session state, deliberate-decline flow, recovery flow (missed day), progress/continuity view, covenant view, demo project seed, pluggable coach engine (scripted fallback + Anthropic API when key present).
+IN: onboarding covenant flow, Today view with daily invitation, workbench session, session closeout, invitation generation from real session state, deliberate-decline flow, recovery flow (missed day), progress/continuity view, covenant view, demo project seed, pluggable coach engine (scripted fallback plus optional Anthropic, OpenAI, and xAI models).
 
 OUT (do not build): auth, remote DB, push notifications, calendar integration, voice calls/dictation, payments/stakes, social accountability, mobile apps, dark mode. Single user, single active project is fine (data model supports multiple projects, UI can assume one active).
 
 ## Stack
 
-- Next.js 15 (App Router) + TypeScript strict + Tailwind CSS v4. React 19.
+- Next.js App Router on the Sites Vinext runtime + TypeScript strict + Tailwind CSS v4. React 19.
 - No component library (no shadcn/radix/etc). Hand-built components per the design system below. `clsx` or `tailwind-merge` allowed. No other UI deps.
 - Fonts via `next/font/local`, using the bundled WOFF2 files: **Newsreader** (display serif, weights 400/500 + italic), **Inter** (UI/body), **JetBrains Mono** (mono, sparingly).
 - Persistence: `localStorage` behind a repository module (`lib/store/`) so it can be swapped for a real backend later. All state client-side. Use a React context + reducer or a tiny zustand store (zustand allowed if it keeps code cleaner).
-- AI: route handler `app/api/coach/route.ts` using `@anthropic-ai/sdk`, model `claude-sonnet-5`, key from `process.env.ANTHROPIC_API_KEY`. `GET /api/coach/status` reports whether a key is configured. Client coach engine calls the API when available, otherwise uses the **scripted provider** (deterministic templates — the app must be fully usable with no key).
-- Must pass `npm run build` and `npm run lint`. Deployable to Vercel unmodified.
+- AI: route handler `app/api/coach/route.ts` supports `claude-sonnet-5`, `gpt-5.6-luna`, and `grok-4.5` using server-side runtime secrets. `GET /api/coach/status` reports configuration without making paid calls; manual `POST /api/coach/status` probes all three exact model paths. The client falls back to the deterministic scripted provider when a hosted call fails, so the app remains usable with no key.
+- Must pass `npm run lint`, `npm run build`, and `npm test`. Deployable to GPT Sites as a private Cloudflare Worker-compatible build.
 
 ## Data model (`lib/types.ts`)
 
@@ -106,7 +106,7 @@ type AssistLevel = 'nudge' | 'question' | 'options'; // never finished work
 ```
 
 - **Scripted provider** (default, no key): deterministic templates keyed by `shape` and covenant/session fields. Invitations must feel specific: interpolate the milestone, last session's reflection/re-entry, obstacle. Example (make): "Yesterday you left off at: {reentry}. Tonight: {action derived from milestone}. Stop when {stopCondition}. Don't edit earlier material — that's the exit ramp you named." Provide 3–4 template variants per shape so consecutive days differ. Assist levels: nudge = a short prompt back to the work; question = one pointed question about the material; options = three *intentions* (never finished prose/answers/solutions).
-- **Anthropic provider**: same interface; system prompt encodes the steward rules (never produce the human-owned artifact; assist ladder; tone from covenant; brevity — coach speaks in 1–3 sentences). Pass project state (covenant, last 2 sessions' reflections, open threads) as context. Route handler does the API call server-side; client never sees the key.
+- **Hosted providers**: Anthropic, OpenAI, and xAI implement the same interface and use one shared system prompt encoding the steward rules (never produce the human-owned artifact; assist ladder; tone from covenant; brevity — coach speaks in 1–3 sentences). The route handler performs every provider call server-side; the client never receives a key. Invitation generation sends the covenant, the last two closeouts, and open threads. Assistance also sends the current session. See `docs/COACH_PROVIDERS.md` for the precise data boundary.
 - The assist ladder is ENFORCED in code, not just prompted: the UI only offers nudge/question/options, and the API route rejects requests for finished prose with a scripted refusal referencing the covenant ("You asked me not to write this for you. What is the character afraid of?" style).
 
 ## Routes & screens
@@ -171,4 +171,4 @@ Coach voice everywhere: calm, dry, specific, second person, no exclamation point
 - `npm run build` and `npm run lint` clean (include an eslint config).
 - No `any` (except unavoidable lib edges), no dead code, no TODO comments left behind.
 - Seed the demo project, click through: onboarding (fresh profile), Today → Begin → write → assist buttons → End session → closeout → Today completed state → Progress → Covenant. All functional with NO API key (scripted provider).
-- README.md: what it is (2 paragraphs), run instructions, env var for Anthropic key optional, architecture map (one screen), honest list of v0.1 cuts.
+- README.md: what it is (2 paragraphs), run instructions, optional server-only provider keys, architecture map (one screen), Sites workflow link, and honest list of v0.1 cuts.

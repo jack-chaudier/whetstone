@@ -10,6 +10,17 @@ import { COACH_MODELS } from '@/lib/coach/models';
 import type { ApiCoachProvider, CoachProviderId, Covenant } from '@/lib/types';
 
 type EditKey = 'ambition' | 'why' | 'milestone' | 'ownership' | 'schedule' | 'tone' | null;
+type ProviderCheckStatus = 'configured' | 'missing' | 'connected' | 'invalid_credentials' | 'model_unavailable' | 'rate_limited' | 'timeout' | 'provider_error';
+interface ProviderStatus {
+  id: ApiCoachProvider;
+  label: string;
+  vendor: string;
+  model: string;
+  configured: boolean;
+  status: ProviderCheckStatus;
+  checkedAt?: string;
+  latencyMs?: number;
+}
 const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 export default function CovenantPage() { return <AppShell><CovenantGate /></AppShell>; }
@@ -26,7 +37,9 @@ function CovenantContent({ project }: { project: NonNullable<ReturnType<typeof u
   const [draft, setDraft] = useState<Covenant>(project.covenant);
   const [editing, setEditing] = useState<EditKey>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [providerStatus, setProviderStatus] = useState<Record<ApiCoachProvider, boolean> | null>(null);
+  const [providerStatus, setProviderStatus] = useState<Record<ApiCoachProvider, ProviderStatus> | null>(null);
+  const [checkingProviders, setCheckingProviders] = useState(false);
+  const [providerCheckError, setProviderCheckError] = useState(false);
   const deleteTriggerRef = useRef<HTMLButtonElement>(null);
   const cancelDelete = useCallback(() => setConfirmDelete(false), []);
   const deleteDialogRef = useModalDialog(confirmDelete, cancelDelete, deleteTriggerRef);
@@ -36,17 +49,31 @@ function CovenantContent({ project }: { project: NonNullable<ReturnType<typeof u
     void fetch('/api/coach/status', { cache: 'no-store' })
       .then(async (response) => {
         if (!response.ok) throw new Error('Coach status unavailable');
-        return response.json() as Promise<{ providers: { id: ApiCoachProvider; configured: boolean }[] }>;
+        return response.json() as Promise<{ providers: ProviderStatus[] }>;
       })
       .then((body) => {
-        if (active) setProviderStatus(Object.fromEntries(body.providers.map((provider) => [provider.id, provider.configured])) as Record<ApiCoachProvider, boolean>);
+        if (active) setProviderStatus(indexProviderStatus(body.providers));
       })
-      .catch(() => { if (active) setProviderStatus({ anthropic: false, openai: false, xai: false }); });
+      .catch(() => { if (active) setProviderCheckError(true); });
     return () => { active = false; };
   }, []);
 
   function save() { revise(draft); setEditing(null); }
   function update<K extends keyof Covenant>(key: K, value: Covenant[K]) { setDraft((current) => ({ ...current, [key]: value })); }
+  async function checkConnections() {
+    setCheckingProviders(true);
+    setProviderCheckError(false);
+    try {
+      const response = await fetch('/api/coach/status', { method: 'POST', cache: 'no-store' });
+      if (!response.ok) throw new Error('Connection check unavailable');
+      const body = await response.json() as { providers: ProviderStatus[] };
+      setProviderStatus(indexProviderStatus(body.providers));
+    } catch {
+      setProviderCheckError(true);
+    } finally {
+      setCheckingProviders(false);
+    }
+  }
 
   return <main className="page covenant-page">
     <header className="covenant-header enter"><p className="eyebrow">The agreement beneath the plan</p><h1 className="display">Your covenant</h1><p>It can change. It should not become vague.</p></header>
@@ -63,18 +90,38 @@ function CovenantContent({ project }: { project: NonNullable<ReturnType<typeof u
       <div><p className="eyebrow">THE COACH&apos;S VOICE</p><h2 id="coach-voice-title" className="display">The steward&apos;s judgment. Different minds, same covenant.</h2></div>
       <fieldset className="provider-list"><legend className="sr-only">Coach provider</legend>
         <ProviderOption id="scripted" checked={state.coachProvider === 'scripted'} onChange={setCoachProvider} label="Tenzon scripted" detail="offline, always available" />
-        {COACH_MODELS.map((model) => { const configured = providerStatus?.[model.id] ?? false; return <ProviderOption key={model.id} id={model.id} checked={state.coachProvider === model.id} disabled={!configured} onChange={setCoachProvider} label={model.label} detail={model.vendor} hint={providerStatus && !configured ? `add ${model.envKey} to .env.local` : undefined} />; })}
+        {COACH_MODELS.map((model) => { const status = providerStatus?.[model.id]; return <ProviderOption key={model.id} id={model.id} checked={state.coachProvider === model.id} disabled={!status?.configured} onChange={setCoachProvider} label={model.label} detail={`${model.vendor} · ${model.model}`} hint={providerHint(status)} status={status?.status} />; })}
       </fieldset>
+      <div className="provider-check"><button className="button button-secondary" disabled={checkingProviders || (!providerStatus && !providerCheckError)} onClick={checkConnections}>{checkingProviders ? 'Checking three connections' : providerCheckError && !providerStatus ? 'Retry connection status' : 'Check all connections'}</button><p aria-live="polite">{providerCheckError ? 'Connection status is unavailable. Try again.' : checkingProviders ? 'Sending one minimal, project-free request to each configured model.' : 'Checks are manual and never include your project content.'}</p></div>
     </section>
-    <section className="data-controls" aria-labelledby="data-title"><div><h2 id="data-title" className="display">Your data</h2><p>Everything lives in this browser. Take it with you or remove it.</p></div><div><button className="button button-secondary" onClick={() => repo.exportState(state)}>Export JSON</button><button ref={deleteTriggerRef} className="quiet danger" onClick={() => setConfirmDelete(true)}>Delete everything</button></div></section>
+    <section className="data-controls" aria-labelledby="data-title"><div><h2 id="data-title" className="display">Your data</h2><p>Your project is stored in this browser. A selected hosted coach receives only the context needed for that request.</p></div><div><button className="button button-secondary" onClick={() => repo.exportState(state)}>Export JSON</button><button ref={deleteTriggerRef} className="quiet danger" onClick={() => setConfirmDelete(true)}>Delete everything</button></div></section>
     {confirmDelete && <div className="dialog-backdrop"><section ref={deleteDialogRef} tabIndex={-1} className="dialog enter" role="dialog" aria-modal="true" aria-labelledby="delete-title"><p className="eyebrow">This cannot be undone</p><h2 id="delete-title" className="display delete-title">Delete the project and every session?</h2><p className="delete-copy">Export first if any part of the work should remain. Tenzon has no remote copy.</p><div className="delete-actions"><button className="quiet" onClick={cancelDelete}>Keep the project</button><button className="button delete-button" onClick={() => { clear(); router.push('/onboarding'); }}>Delete everything</button></div></section></div>}
   </main>;
 }
 
 function split(value: string): string[] { return value.split(',').map((item) => item.trim()).filter(Boolean); }
 
-function ProviderOption({ id, checked, disabled = false, onChange, label, detail, hint }: { id: CoachProviderId; checked: boolean; disabled?: boolean; onChange: (provider: CoachProviderId) => void; label: string; detail: string; hint?: string }) {
-  return <label className={`provider-option ${disabled ? 'disabled' : ''}`}><input type="radio" name="coach-provider" value={id} checked={checked} disabled={disabled} onChange={() => onChange(id)} /><span><strong>{label}</strong> — {detail}{hint && <small>{hint}</small>}</span></label>;
+function indexProviderStatus(providers: ProviderStatus[]): Record<ApiCoachProvider, ProviderStatus> {
+  return Object.fromEntries(providers.map((provider) => [provider.id, provider])) as Record<ApiCoachProvider, ProviderStatus>;
+}
+
+function providerHint(status?: ProviderStatus): string {
+  if (!status) return 'Checking runtime configuration';
+  if (status.status === 'missing') return 'Not configured in this environment';
+  if (status.status === 'configured') return 'Configured · ready for a live check';
+  if (status.status === 'connected') return `Connected${status.latencyMs ? ` in ${status.latencyMs} ms` : ''}`;
+  const labels: Record<Exclude<ProviderCheckStatus, 'missing' | 'configured' | 'connected'>, string> = {
+    invalid_credentials: 'Could not authenticate',
+    model_unavailable: 'Model is unavailable to this account',
+    rate_limited: 'Provider rate limit reached',
+    timeout: 'Provider timed out',
+    provider_error: 'Provider request failed',
+  };
+  return labels[status.status];
+}
+
+function ProviderOption({ id, checked, disabled = false, onChange, label, detail, hint, status }: { id: CoachProviderId; checked: boolean; disabled?: boolean; onChange: (provider: CoachProviderId) => void; label: string; detail: string; hint?: string; status?: ProviderCheckStatus }) {
+  return <label className={`provider-option ${disabled ? 'disabled' : ''}`}><input type="radio" name="coach-provider" value={id} checked={checked} disabled={disabled} onChange={() => onChange(id)} /><span className="provider-copy"><span><strong>{label}</strong> — {detail}</span>{hint && <small className={status ? `provider-status ${status}` : ''}>{hint}</small>}</span></label>;
 }
 
 function CovenantSection({ label, editing, onEdit, onSave, children }: { label: string; editing: boolean; onEdit: () => void; onSave: () => void; children: React.ReactNode }) { return <section className="document-section"><div className="document-label"><span>{label}</span><button className="quiet" onClick={editing ? onSave : onEdit}>{editing ? 'save' : 'revise'}</button></div>{children}</section>; }

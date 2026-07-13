@@ -1,5 +1,12 @@
 .next/
+.vinext/
+dist/
+.wrangler/
 node_modules/
 .env*
 !.env.example
+.dev.vars*
 npm-debug.log*
+outputs/
+work/
+*.tsbuildinfo
