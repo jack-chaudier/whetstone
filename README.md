@@ -23,6 +23,8 @@ XAI_API_KEY=your_key_here
 
 The Covenant page offers Tenzon scripted, Claude Sonnet 5, GPT-5.6 Luna, and Grok 4.5. Unconfigured hosted providers remain disabled. The **Check all connections** button makes one minimal, project-free request to each configured model and reports each result independently. Provider errors fall back to the scripted coach; keys stay server-side.
 
+Grok can also use an xAI subscription instead of `XAI_API_KEY`. Add a random `OAUTH_COOKIE_SECRET` of at least 32 characters, then choose **Connect your Grok subscription** on the Covenant page. Device and access tokens stay in AES-GCM-sealed `HttpOnly` cookies, never reach browser JavaScript, and are never stored server-side. xAI may refuse OAuth API access for subscription tiers outside its allowlist.
+
 For the exact request flow, data sent to each provider, error behavior, and secret boundaries, see [Coach providers](docs/COACH_PROVIDERS.md).
 
 ## Deploy to GPT Sites

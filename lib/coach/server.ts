@@ -15,6 +15,10 @@ class ProviderRequestError extends Error {
   }
 }
 
+export function providerHttpStatus(error: unknown): number | undefined {
+  return isRecord(error) && typeof error.status === 'number' ? error.status : undefined;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -93,12 +97,8 @@ export type ConnectionStatus =
   | 'timeout'
   | 'provider_error';
 
-function errorStatus(error: unknown): number | undefined {
-  return isRecord(error) && typeof error.status === 'number' ? error.status : undefined;
-}
-
 export function connectionFailure(error: unknown): Exclude<ConnectionStatus, 'missing' | 'connected'> {
-  const status = errorStatus(error);
+  const status = providerHttpStatus(error);
   if (status === 401 || status === 403) return 'invalid_credentials';
   if (status === 404) return 'model_unavailable';
   if (status === 429) return 'rate_limited';
@@ -110,7 +110,7 @@ export function connectionFailure(error: unknown): Exclude<ConnectionStatus, 'mi
 export async function probeConnection(provider: ApiCoachProvider, apiKey: string): Promise<void> {
   await messageText(provider, 'Reply with OK only.', apiKey, {
     // Grok reasoning tokens share this budget and cannot be disabled.
-    maxTokens: provider === 'xai' ? 300 : 64,
+    maxTokens: provider === 'xai' || provider === 'xai-oauth' ? 300 : 64,
     system: 'This is a connection check. Reply with the word OK and nothing else.',
   });
 }

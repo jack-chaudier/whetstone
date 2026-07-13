@@ -32,9 +32,10 @@ Never place API keys in Git, `.openai/hosting.json`, a remote URL, a deployment 
    ANTHROPIC_API_KEY
    OPENAI_API_KEY
    XAI_API_KEY
+   OAUTH_COOKIE_SECRET
    ```
 
-   Sites production values are intentionally separate from local `.dev.vars`.
+   Sites production values are intentionally separate from local `.dev.vars`. Generate `OAUTH_COOKIE_SECRET` as a random value of at least 32 characters. It seals per-browser xAI OAuth tokens and never leaves the Worker.
 
 4. Validate the exact source, commit it, and push the same branch head to the normal GitHub origin and the Sites source repository. Use Sites’ short-lived write credential only as a per-command authorization header; never persist it in Git configuration or a remote URL.
 
@@ -54,8 +55,9 @@ Never place API keys in Git, `.openai/hosting.json`, a remote URL, a deployment 
 8. Open the production URL and complete the live checks:
 
    - The home, onboarding, progress, Covenant, and workbench routes load.
-   - `GET /api/coach/status` lists all three providers as configured.
-   - **Check all connections** reports `Connected` for each exact model.
+   - `GET /api/coach/status` lists the three API-key providers and the Grok subscription connection.
+   - Connect one Grok subscription and confirm a refresh preserves the connection.
+   - **Check all connections** reports `Connected` for each configured connection.
    - Select each hosted coach and make one real workbench request.
    - Browser responses and client bundles contain no secret values.
    - Refreshing preserves the local browser project.
@@ -73,7 +75,9 @@ Updating Sites environment values changes the environment revision, not the sour
 3. Save and deploy a version so the new environment revision takes effect.
 4. Run **Check all connections** again.
 
-If one provider fails, its row reports a sanitized cause while the other two checks still complete. The scripted coach remains available.
+Rotating `OAUTH_COOKIE_SECRET` deliberately invalidates every existing `xai_oauth` cookie. Users must connect their Grok subscriptions again after the new environment revision is deployed.
+
+If one connection fails, its row reports a sanitized cause while the other checks still complete. The scripted coach remains available.
 
 ## Rollback and access
 

@@ -201,8 +201,16 @@ textarea.field { resize: vertical; }
 .provider-status::before { position: absolute; top: 4px; left: 0; width: 6px; height: 6px; border-radius: 50%; background: var(--ink-faint); content: ''; }
 .provider-status.connected { color: var(--moss); }
 .provider-status.connected::before { background: var(--moss); }
-.provider-status.invalid_credentials, .provider-status.model_unavailable, .provider-status.rate_limited, .provider-status.timeout, .provider-status.provider_error { color: #8D3429; }
-.provider-status.invalid_credentials::before, .provider-status.model_unavailable::before, .provider-status.rate_limited::before, .provider-status.timeout::before, .provider-status.provider_error::before { background: #8D3429; }
+.provider-status.invalid_credentials, .provider-status.model_unavailable, .provider-status.rate_limited, .provider-status.timeout, .provider-status.provider_error, .provider-status.oauth_access_refused { color: #8D3429; }
+.provider-status.invalid_credentials::before, .provider-status.model_unavailable::before, .provider-status.rate_limited::before, .provider-status.timeout::before, .provider-status.provider_error::before, .provider-status.oauth_access_refused::before { background: #8D3429; }
+.oauth-connect-row { padding: 15px 0 17px; border-top: 1px solid var(--border); }
+.oauth-connect-row > div:first-child { min-height: 20px; color: var(--ink-secondary); font-size: 12px; }
+.oauth-actions { display: flex; align-items: baseline; gap: 14px; }
+.oauth-message, .oauth-honesty, .oauth-device p { margin: 0; color: var(--ink-faint); font-size: 11px; }
+.oauth-honesty { margin-top: 9px; }
+.oauth-device { display: grid; justify-items: start; gap: 8px; }
+.oauth-device code { user-select: all; color: var(--ink); font-family: var(--font-jetbrains), monospace; font-size: clamp(24px, 5vw, 32px); letter-spacing: .08em; line-height: 1.2; }
+.oauth-device .quiet { display: inline-block; }
 .provider-check { display: flex; align-items: center; gap: 14px; margin-top: 18px; }
 .provider-check p { margin: 0; color: var(--ink-faint); font-size: 11px; }
 .danger { color: #8D3429; }

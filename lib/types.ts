@@ -3,7 +3,7 @@ export type CoachTone = 'warm' | 'dry' | 'firm';
 export type AssistLevel = 'nudge' | 'question' | 'options';
 export type DeclineReason = 'no-time' | 'confused' | 'dread';
 export type RecoveryReason = 'time' | 'confusion' | 'dread' | 'life';
-export type ApiCoachProvider = 'anthropic' | 'openai' | 'xai';
+export type ApiCoachProvider = 'anthropic' | 'openai' | 'xai' | 'xai-oauth';
 export type CoachProviderId = 'scripted' | ApiCoachProvider;
 
 export interface Covenant {

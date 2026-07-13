@@ -159,7 +159,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function isCoachProvider(value: unknown): value is CoachProviderId {
-  return value === 'scripted' || value === 'anthropic' || value === 'openai' || value === 'xai';
+  return value === 'scripted' || value === 'anthropic' || value === 'openai' || value === 'xai' || value === 'xai-oauth';
 }
 
 function isValidProject(value: unknown): value is Project {
