@@ -14,16 +14,23 @@ Do not prefix these names with `NEXT_PUBLIC_`. The browser never needs the value
 ## Request flow
 
 ```text
-Covenant model selection (stored in localStorage)
-                    |
-                    v
-lib/coach/client.ts -- POST /api/coach --> validated server route
-                    |                         |
-                    |                         +-- reads one process.env secret
-                    |                         +-- calls the selected exact model
-                    |                         +-- returns generated text or invitation JSON
-                    |
-                    +-- on failure, uses the deterministic scripted coach
+Setup model selection (stored per project in localStorage)
+      |
+      +-- lib/coach/client.ts -- POST /api/setup -- validated setup route
+      |                                      |
+      |                                      +-- sends a normalized new-project draft
+      |                                      +-- returns an acknowledgment and optional milestone
+      |                                      +-- route adds the fixed application-owned question
+      |
+      +-- setup failure: explicit error, retry, or model switch
+
+Covenant and daily coach selection (the same per-project setting)
+      |
+      +-- lib/coach/client.ts -- POST /api/coach -- validated coach route
+                                             |
+                                             +-- reads one process.env secret
+                                             +-- calls the selected exact model
+                                             +-- daily failure: deterministic scripted fallback
 ```
 
 Secrets are read only inside server routes. They are never serialized into page props, browser JavaScript, API responses, application logs, the Sites archive, or `.openai/hosting.json`.
@@ -36,7 +43,7 @@ There is no token database. Tenzon seals the device grant in an `xai_device` coo
 
 The subscription access token is sent as a Bearer token to the same xAI chat-completions endpoint and exact `grok-4.5` model used by the API-key connection. xAI applies a server-side OAuth allowlist, so some subscription tiers may return 403 even after approval. Tenzon reports that refusal without forwarding xAI response bodies or account details.
 
-The scripted fallback makes the product resilient, but it also means a hosted-provider failure does not stop a work session. Use the connection panel before relying on a hosted coach. A successful check proves the key and exact generation path worked at that moment; it is not a permanent uptime guarantee.
+The scripted fallback makes daily coaching resilient, but it also means a hosted-provider failure does not stop a work session. Project setup does not silently fall back because that would impersonate the model the user selected; it names the sanitized connection failure and offers retry or a deliberate model change. Use the connection panel before relying on a hosted coach. A successful check proves the key and exact generation path worked at that moment; it is not a permanent uptime guarantee.
 
 ## Data sent to a selected hosted provider
 
@@ -44,12 +51,13 @@ Tenzon stores the full project only in the current browser. It sends a bounded r
 
 | Action | Context sent |
 | --- | --- |
+| Project setup | Only the normalized draft for the new project, the current application-owned question stage, and the latest bounded answer. Existing projects, sessions, sources, and prior assistant text are not sent |
 | Invitation | Covenant, the last two completed-session reflections and re-entry points, open threads, and whether the last scheduled day was missed |
 | Workbench assist | The invitation context above plus the current session, including the human work, imported sources, prior coach exchanges, and the user’s request |
 | Closeout question | Covenant context, session word count, and the final 500 characters of the current work |
 | Connection check | Fixed text: `Reply with OK only.` No project, session, source, or user-authored content |
 
-Project data is wrapped as untrusted data so instructions embedded in sources or drafts are not treated as system instructions. The server also validates request shapes, limits payload size, and deterministically refuses common requests to take over human-owned work.
+Project and setup data is wrapped as untrusted data so instructions embedded in sources, drafts, or setup answers are not treated as system instructions. The setup route owns the stage order, question copy, and renderer whitelist; a model may return only a bounded plain-text acknowledgment and, at review, a milestone. The server adds the canonical next question after validating the model response. Unknown fields, model-authored questions, arbitrary component definitions, malformed JSON, and oversized payloads are rejected. The coach route also validates request shapes and deterministically refuses common requests to take over human-owned work.
 
 ## Configuration versus connection
 
@@ -92,4 +100,4 @@ After adding or rotating a secret:
 3. Confirm the variable name is present and redacted in Sites.
 4. Open the private site and run **Check all connections**.
 
-The current coach routes have no app-level public-user quota. Keep the deployment private. Before making it public, add authenticated authorization and rate limiting to `/api/coach` and the live-check action.
+The current coach routes have no app-level public-user quota. Keep the deployment private. Before making it public, add authenticated authorization and rate limiting to `/api/setup`, `/api/coach`, and the paid `POST /api/coach/status` live-check action.

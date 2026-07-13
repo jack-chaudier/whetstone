@@ -1,4 +1,4 @@
-# Tenzon — Prototype v0.1 Spec
+# Tenzon — Prototype v0.2 Spec
 
 Working prototype of the product described in `Tenzon_Project_Steward.md` (read it first — it is the source of truth for tone and intent). This spec freezes scope, architecture, and design for the first build.
 
@@ -13,9 +13,9 @@ Tone throughout: calm, dry, perceptive, on the user's side. Never guilt. Never s
 
 ## Scope for v0.1
 
-IN: onboarding covenant flow, Today view with daily invitation, workbench session, session closeout, invitation generation from real session state, deliberate-decline flow, recovery flow (missed day), progress/continuity view, covenant view, demo project seed, pluggable coach engine (scripted fallback plus optional Anthropic, OpenAI, and xAI models).
+IN: multi-project switching, model-backed rendered covenant setup, Today view with daily invitation, workbench session, session closeout, invitation generation from real session state, deliberate-decline flow, recovery flow (missed day), progress/continuity view, covenant view, demo project seed, and a pluggable coach engine (scripted fallback plus optional Anthropic, OpenAI, and xAI models).
 
-OUT (do not build): auth, remote DB, push notifications, calendar integration, voice calls/dictation, payments/stakes, social accountability, mobile apps, dark mode. Single user, single active project is fine (data model supports multiple projects, UI can assume one active).
+OUT (do not build): auth, remote DB, cross-device synchronization, push notifications, calendar integration, voice calls/dictation, payments/stakes, social accountability, mobile apps, dark mode. The product is single-user and supports multiple local projects with one active project at a time.
 
 ## Stack
 
@@ -23,7 +23,7 @@ OUT (do not build): auth, remote DB, push notifications, calendar integration, v
 - No component library (no shadcn/radix/etc). Hand-built components per the design system below. `clsx` or `tailwind-merge` allowed. No other UI deps.
 - Fonts via `next/font/local`, using the bundled WOFF2 files: **Newsreader** (display serif, weights 400/500 + italic), **Inter** (UI/body), **JetBrains Mono** (mono, sparingly).
 - Persistence: `localStorage` behind a repository module (`lib/store/`) so it can be swapped for a real backend later. All state client-side. Use a React context + reducer or a tiny zustand store (zustand allowed if it keeps code cleaner).
-- AI: route handler `app/api/coach/route.ts` supports `claude-sonnet-5`, `gpt-5.6-luna`, and `grok-4.5` using server-side runtime secrets. `GET /api/coach/status` reports configuration without making paid calls; manual `POST /api/coach/status` probes all three exact model paths. The client falls back to the deterministic scripted provider when a hosted call fails, so the app remains usable with no key.
+- AI: route handlers `app/api/setup/route.ts` and `app/api/coach/route.ts` support `claude-sonnet-5`, `gpt-5.6-luna`, and `grok-4.5` using server-side runtime secrets. `GET /api/coach/status` reports configuration without making paid calls; manual `POST /api/coach/status` probes all three exact model paths. Daily coaching falls back to the deterministic scripted provider. Setup failures remain explicit so a scripted response is never presented as the selected hosted model.
 - Must pass `npm run lint`, `npm run build`, and `npm test`. Deployable to GPT Sites as a private Cloudflare Worker-compatible build.
 
 ## Data model (`lib/types.ts`)
@@ -83,6 +83,7 @@ interface Thread {                // open questions / emerging possibilities fro
 interface Project {
   id: string;
   covenant: Covenant;
+  coachProvider: 'scripted' | 'anthropic' | 'openai' | 'xai' | 'xai-oauth';
   invitations: Invitation[];
   sessions: Session[];
   threads: Thread[];
@@ -90,7 +91,7 @@ interface Project {
 }
 ```
 
-Repository (`lib/store/repo.ts`): load/save whole app state to `localStorage` key `tenzon:v1`; typed getters/mutators (createProject, todayInvitation, startSession, endSession, declineInvitation, recordRecovery…). No direct localStorage access from components.
+Repository (`lib/store/repo.ts`): load/save the whole multi-project state to `localStorage` key `tenzon:v1`; typed getters/mutators include create, select, delete-one-project, per-project provider changes, invitations, sessions, and closeout operations. Loading normalizes older v1 projects from the legacy global provider and repairs dangling active IDs without discarding nested work. No direct localStorage access from components.
 
 ## Coach engine (`lib/coach/`)
 
@@ -112,10 +113,10 @@ type AssistLevel = 'nudge' | 'question' | 'options'; // never finished work
 ## Routes & screens
 
 ### `/onboarding` — the covenant conversation
-First-run (no project in store) redirects here. NOT a form. One question per step, full-screen, centered, generous whitespace, the question set in display serif. Steps: ambition → why it matters → shape (three cards: Make / Learn / Investigate) → what already exists → what has stopped you → schedule (day picker + minutes/session + time window) → what stays human (chips, editable) → coach tone (three cards w/ sample line of coach voice in each) → covenant summary ("This is your covenant" — a beautifully typeset document-style card; confirm) → first invitation is generated and user lands on Today. Progress dots at top. Back navigation works. Also a quiet "Explore with a demo project" link on the first step which seeds the demo project (below) and jumps to Today.
+First-run redirects here, and **New project** reuses it later without replacing existing work. The user first chooses an available coach or connects a Grok subscription. One continuous transcript then renders the application-owned sequence: ambition → why it matters → shape cards → existing work → obstacle → schedule → ownership boundary → tone cards → typeset covenant review. The selected hosted model receives only the bounded draft and latest answer, personalizes each acknowledgment, and proposes the milestone. The application owns stage order, question copy, choices, validation, and renderers. Setup never silently switches models. Confirmation generates the first invitation, appends and activates the project, and preserves every existing project.
 
 ### `/` — Today
-The daily anchor. Layout: masthead (wordmark "Tenzon", nav: Today / Progress / Covenant), then:
+The daily anchor. Layout: masthead (wordmark, active-project switcher, **New project**, and Today / Progress / Covenant navigation), then:
 - Date + short greeting line (time-of-day aware, coach-toned, no exclamation points).
 - **The invitation card** (hero of the screen): continuity line ("Yesterday you…") in muted text, the action in display serif ~28px, stopping condition, scope estimate ("about 25 minutes"). Primary button "Begin" (opens workbench). Secondary quiet actions: "Make it smaller" (regenerates at ~half scope) and "Not today" (opens decline flow).
 - Decline flow: inline sheet, one question — "What's true right now?" with three options (No real time today / I'm not sure what to do / I don't want to face it). Each gets a different one-line coach response and either a 10-minute micro-alternative or a graceful release ("Deliberately declined. That counts as a decision, not a failure."). Recorded on the invitation.

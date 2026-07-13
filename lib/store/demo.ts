@@ -97,6 +97,7 @@ export function createDemoProject(today = new Date()): Project {
 
   return {
     id: projectId,
+    coachProvider: 'scripted',
     covenant: {
       ambition: 'Write a fantasy novel about two siblings negotiating a dangerous inheritance',
       why: 'I want to finish a story whose characters have stayed with me for years.',

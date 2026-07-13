@@ -17,7 +17,7 @@ export default function SessionPage() {
 function Workbench() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
-  const { project, saveDraft, finish, schedule, state } = useApp();
+  const { project, saveDraft, finish, schedule } = useApp();
   const session = project?.sessions.find((item) => item.id === params.id);
   const invitation = project?.invitations.find((item) => item.id === session?.invitationId);
   const [work, setWork] = useState(session?.work ?? '');
@@ -60,7 +60,7 @@ function Workbench() {
     const nextMessages: CoachMessage[] = [...messages, { role: 'user', text: userText, at: now }];
     setMessages(nextMessages); setAsk(''); setWaiting(true);
     const currentSession = { ...session, work, sources, wordsProduced: wordCount(work), coachExchanges: nextMessages };
-    const text = await assist(project, currentSession, userText, level, state.coachProvider);
+    const text = await assist(project, currentSession, userText, level, project.coachProvider);
     setMessages([...nextMessages, { role: 'coach', text, at: new Date().toISOString() }]);
     setWaiting(false);
   }
@@ -73,7 +73,7 @@ function Workbench() {
     <header className="workbench-header"><div><span className="eyebrow">Today’s edge</span><h1 className="display">{invitation.action}</h1><p>{invitation.stopCondition}</p></div><div className="session-meta"><span className="mono">{formatElapsed(elapsed)}</span><span className="mono">{wordCount(work)} words</span><button ref={endSessionRef} className="button button-secondary" onClick={() => setCloseout(true)}>End session</button></div></header>
     <section className="bench" aria-labelledby="bench-label"><div className="bench-heading"><label id="bench-label" htmlFor="work-editor" className="eyebrow">{label}</label>{!railOpen && <button className="quiet" onClick={() => setRailOpen(true)}>Open sources and coach</button>}</div><textarea id="work-editor" value={work} onChange={(event) => setWork(event.target.value)} placeholder="Begin badly. That’s allowed." spellCheck className="work-editor" /></section>
     {railOpen && <aside className="right-rail"><div className="rail-title"><span className="eyebrow">Workbench context</span><button className="quiet" onClick={() => setRailOpen(false)}>Collapse</button></div><section className="source-panel"><label htmlFor="sources" className="eyebrow">Sources <span>imported material</span></label><textarea id="sources" value={sources} onChange={(event) => setSources(event.target.value)} placeholder="Paste sources, quotations, prior notes, or problem text here." /></section><section className="coach-panel"><h2 className="eyebrow">Coach</h2><div ref={coachMessagesRef} className="coach-messages" aria-live="polite">{messages.length === 0 ? <p className="coach-quiet">Quiet by default. Ask only when the work needs a way forward.</p> : messages.map((message, index) => <div key={`${message.at}-${index}`} className={message.role}><span>{message.role === 'coach' ? 'Tenzon' : 'You'}</span><p>{message.text}</p></div>)}{waiting && <p className="coach-quiet">Considering the smallest useful intervention.</p>}</div><label htmlFor="coach-ask" className="sr-only">Ask the coach</label><textarea id="coach-ask" className="field coach-ask" rows={2} value={ask} onChange={(event) => setAsk(event.target.value)} placeholder="Add context, if useful" /><div className="assist-buttons"><button onClick={() => requestHelp('nudge')} disabled={waiting}>Nudge me</button><button onClick={() => requestHelp('question')} disabled={waiting}>Ask me a question</button><button onClick={() => requestHelp('options')} disabled={waiting}>Give me three directions</button></div></section></aside>}
-    {closeout && <CloseoutDialog triggerRef={endSessionRef} words={wordCount(work)} minutes={minutes} onCancel={closeCloseout} onFinish={async (reflection, reentry) => { saveDraft(session.id, work, sources, messages); const updatedSession = { ...session, work, sources, wordsProduced: wordCount(work), coachExchanges: messages, reflection, reentry, endedAt: new Date().toISOString() }; const updatedProject: Project = { ...project, sessions: project.sessions.map((item) => item.id === session.id ? updatedSession : item) }; const nextDate = nextScheduledDayAfter(project.covenant); const draft = nextDate ? await generateInvitation(updatedProject, false, state.coachProvider) : null; finish(session.id, reflection, reentry); if (draft && nextDate) schedule(draft, nextDate); router.push('/'); }} />}
+    {closeout && <CloseoutDialog triggerRef={endSessionRef} words={wordCount(work)} minutes={minutes} onCancel={closeCloseout} onFinish={async (reflection, reentry) => { saveDraft(session.id, work, sources, messages); const updatedSession = { ...session, work, sources, wordsProduced: wordCount(work), coachExchanges: messages, reflection, reentry, endedAt: new Date().toISOString() }; const updatedProject: Project = { ...project, sessions: project.sessions.map((item) => item.id === session.id ? updatedSession : item) }; const nextDate = nextScheduledDayAfter(project.covenant); const draft = nextDate ? await generateInvitation(updatedProject, false, project.coachProvider) : null; finish(session.id, reflection, reentry); if (draft && nextDate) schedule(draft, nextDate); router.push('/'); }} />}
   </main>;
 }
 

@@ -64,6 +64,7 @@ export interface Thread {
 export interface Project {
   id: string;
   covenant: Covenant;
+  coachProvider: CoachProviderId;
   invitations: Invitation[];
   sessions: Session[];
   threads: Thread[];
@@ -75,6 +76,7 @@ export interface AppState {
   projects: Project[];
   activeProjectId: string | null;
   recoveryReason?: RecoveryReason;
+  /** Legacy/default provider. Each project owns its actual coach preference. */
   coachProvider: CoachProviderId;
 }
 

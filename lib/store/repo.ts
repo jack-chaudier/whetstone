@@ -25,7 +25,15 @@ export function loadState(): AppState {
   try {
     const parsed: unknown = JSON.parse(raw);
     if (!isValidState(parsed)) return EMPTY_STATE;
-    return { ...parsed, version: 1, coachProvider: isCoachProvider(parsed.coachProvider) ? parsed.coachProvider : 'scripted' };
+    const coachProvider = isCoachProvider(parsed.coachProvider) ? parsed.coachProvider : 'scripted';
+    const projects = parsed.projects.map((project) => ({
+      ...project,
+      coachProvider: isCoachProvider(project.coachProvider) ? project.coachProvider : coachProvider,
+    }));
+    const activeProjectId = projects.some((project) => project.id === parsed.activeProjectId)
+      ? parsed.activeProjectId
+      : projects.at(-1)?.id ?? null;
+    return { ...parsed, version: 1, projects, activeProjectId, coachProvider };
   } catch {
     return EMPTY_STATE;
   }
@@ -46,21 +54,47 @@ export function activeProject(state: AppState): Project | null {
   return state.projects.find((project) => project.id === state.activeProjectId) ?? null;
 }
 
-export function createProject(state: AppState, covenant: Covenant, firstDraft: InvitationDraft): AppState {
+export function createProject(state: AppState, covenant: Covenant, firstDraft: InvitationDraft, coachProvider: CoachProviderId): AppState {
   const projectId = uid('project');
   const project: Project = {
     id: projectId,
     covenant,
+    coachProvider,
     invitations: isScheduledDay(covenant, localDate()) ? [draftToInvitation(firstDraft, projectId, localDate())] : [],
     sessions: [],
     threads: [],
     createdAt: new Date().toISOString(),
   };
-  return saveState({ ...state, version: 1, projects: [...state.projects, project], activeProjectId: projectId });
+  return saveState({ ...state, version: 1, projects: [...state.projects, project], activeProjectId: projectId, coachProvider });
 }
 
 export function addProject(state: AppState, project: Project): AppState {
-  return saveState({ ...state, projects: [...state.projects.filter((item) => item.id !== project.id), project], activeProjectId: project.id });
+  return saveState({
+    ...state,
+    projects: [...state.projects.filter((item) => item.id !== project.id), project],
+    activeProjectId: project.id,
+    coachProvider: project.coachProvider,
+  });
+}
+
+export function selectProject(state: AppState, projectId: string): AppState {
+  if (state.activeProjectId === projectId || !state.projects.some((project) => project.id === projectId)) return state;
+  const selected = state.projects.find((project) => project.id === projectId);
+  return saveState({ ...state, activeProjectId: projectId, coachProvider: selected?.coachProvider ?? state.coachProvider });
+}
+
+export function deleteProject(state: AppState, projectId: string): AppState {
+  const index = state.projects.findIndex((project) => project.id === projectId);
+  if (index < 0) return state;
+  const projects = state.projects.filter((project) => project.id !== projectId);
+  if (state.activeProjectId !== projectId) return saveState({ ...state, projects });
+  const next = projects[index] ?? projects[index - 1] ?? null;
+  return saveState({
+    ...state,
+    projects,
+    activeProjectId: next?.id ?? null,
+    coachProvider: next?.coachProvider ?? state.coachProvider,
+  });
 }
 
 export function todayInvitation(project: Project): Invitation | null {
@@ -115,8 +149,9 @@ export function missedLastScheduled(project: Project, today = localDate()): bool
   return !completed && invitation?.status !== 'declined';
 }
 
-export function setCoachProvider(state: AppState, coachProvider: CoachProviderId): AppState {
-  return saveState({ ...state, coachProvider });
+export function setProjectCoachProvider(state: AppState, projectId: string, coachProvider: CoachProviderId): AppState {
+  if (!state.projects.some((project) => project.id === projectId)) return state;
+  return updateProject({ ...state, coachProvider }, projectId, (project) => ({ ...project, coachProvider }));
 }
 
 export function resizeInvitation(state: AppState, projectId: string, invitationId: string): AppState {

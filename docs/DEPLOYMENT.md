@@ -55,12 +55,13 @@ Never place API keys in Git, `.openai/hosting.json`, a remote URL, a deployment 
 8. Open the production URL and complete the live checks:
 
    - The home, onboarding, progress, Covenant, and workbench routes load.
+   - Create a temporary second project through the rendered setup conversation, switch between both projects, refresh, then delete only the temporary project.
    - `GET /api/coach/status` lists the three API-key providers and the Grok subscription connection.
    - Connect one Grok subscription and confirm a refresh preserves the connection.
    - **Check all connections** reports `Connected` for each configured connection.
-   - Select each hosted coach and make one real workbench request.
+   - Select each hosted coach and make one real setup turn plus one workbench request.
    - Browser responses and client bundles contain no secret values.
-   - Refreshing preserves the local browser project.
+   - Refreshing preserves every local browser project and its own coach preference.
 
 ## Subsequent deployment
 

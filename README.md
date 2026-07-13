@@ -1,6 +1,6 @@
 # Tenzon
 
-Tenzon is an AI project steward for voluntary ambitions: the novel, subject, or question that matters even though no one else is enforcing it. It remembers the live edge of one project, prepares a small daily invitation, and treats deliberate decline and recovery as information rather than failure.
+Tenzon is an AI project steward for voluntary ambitions: the novel, subject, or question that matters even though no one else is enforcing it. It keeps multiple projects separate, remembers the live edge of whichever one is active, prepares a small daily invitation, and treats deliberate decline and recovery as information rather than failure.
 
 The protected workbench keeps imported sources separate from human-authored work. Its coach can nudge, ask a question, or offer intentions, but it will not produce work the covenant says must remain human. Project state is stored in the browser, and a deterministic scripted coach keeps the product usable without any external service. Hosted coaches are optional.
 
@@ -11,7 +11,7 @@ npm install
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000). On the first screen, create a covenant or choose the mid-flight demo project.
+Open [http://localhost:3000](http://localhost:3000). Choose an available coach, then create the first project in one conversation with rendered text, choice, schedule, ownership, tone, and review questions. **New project** in the masthead starts another conversation without replacing existing work.
 
 To use an optional hosted provider, copy `.env.example` to `.dev.vars` and set one or more of:
 
@@ -21,9 +21,9 @@ OPENAI_API_KEY=your_key_here
 XAI_API_KEY=your_key_here
 ```
 
-The Covenant page offers Tenzon scripted, Claude Sonnet 5, GPT-5.6 Luna, and Grok 4.5. Unconfigured hosted providers remain disabled. The **Check all connections** button makes one minimal, project-free request to each configured model and reports each result independently. Provider errors fall back to the scripted coach; keys stay server-side.
+Project setup and the Covenant page offer Tenzon scripted, Claude Sonnet 5, GPT-5.6 Luna, and Grok 4.5. Unconfigured hosted providers remain disabled. The **Check all connections** button makes one minimal, project-free request to each configured model and reports each result independently. Daily coaching falls back to the scripted coach on a provider error; project setup instead shows the selected provider failure and lets the user retry or choose another model. Keys stay server-side.
 
-Grok can also use an xAI subscription instead of `XAI_API_KEY`. Add a random `OAUTH_COOKIE_SECRET` of at least 32 characters, then choose **Connect your Grok subscription** on the Covenant page. Device and access tokens stay in AES-GCM-sealed `HttpOnly` cookies, never reach browser JavaScript, and are never stored server-side. xAI may refuse OAuth API access for subscription tiers outside its allowlist.
+Grok can also use an xAI subscription instead of `XAI_API_KEY`. Add a random `OAUTH_COOKIE_SECRET` of at least 32 characters, then choose **Connect your Grok subscription** during project setup or on the Covenant page. Device and access tokens stay in AES-GCM-sealed `HttpOnly` cookies, never reach browser JavaScript, and are never stored server-side. xAI may refuse OAuth API access for subscription tiers outside its allowlist.
 
 For the exact request flow, data sent to each provider, error behavior, and secret boundaries, see [Coach providers](docs/COACH_PROVIDERS.md).
 
@@ -37,10 +37,11 @@ The complete create/build/package/private-deploy/verify/rotate workflow is in [G
 
 ```text
 app/                         Next.js App Router screens
-├── onboarding/              covenant conversation
+├── onboarding/              model-backed rendered setup conversation
 ├── session/[id]/            protected workbench and closeout
 ├── progress/                continuity, sessions, open threads
 ├── covenant/                editable agreement and data controls
+├── api/setup/               bounded project-setup turns
 └── api/coach/               server-side model adapters and connection status
 
 components/app-provider.tsx  client state boundary
@@ -51,8 +52,8 @@ components/app-provider.tsx  client state boundary
                 └── client    selected hosted model with scripted fallback
 ```
 
-State is stored as one typed document under `localStorage` key `tenzon:v1`. Components do not access browser storage directly, so the repository can later be replaced by a remote backend. The data does not follow the user to another browser or device.
+State is stored as one typed multi-project document under `localStorage` key `tenzon:v1`. Each project keeps its own covenant, sessions, threads, invitations, and coach preference; `activeProjectId` selects the visible project. Existing v1 documents without a per-project provider are normalized from their legacy global preference without losing nested data. Components do not access browser storage directly, so the repository can later be replaced by a remote backend. The data does not follow the user to another browser or device.
 
 ## Prototype cuts
 
-This is deliberately a single-user, single-active-project prototype. It has no app-owned auth, remote database, notifications, calendar, voice or dictation, payments, social accountability, mobile app, or dark mode. Hosted providers do not stream. Source material is separated visually and structurally, but v0.1 does not provide source parsing or custody analysis. The onboarding milestone is synthesized from the chosen project shape and can be revised in the covenant afterward. The first Sites deployment is private because the coach endpoints spend owner-supplied API keys and do not yet have public-user quotas.
+This is deliberately a single-user prototype with multiple local projects and one active project at a time. It has no app-owned auth, remote database, cross-device synchronization, notifications, calendar, voice or dictation, payments, social accountability, mobile app, or dark mode. Hosted providers do not stream. Source material is separated visually and structurally, but this version does not provide source parsing or custody analysis. The chosen setup model proposes the near-term milestone, which can be revised in the covenant afterward; the scripted coach uses a deterministic shape-specific proposal. The Sites deployment remains private because the model endpoints spend owner-supplied credentials and do not yet have public-user quotas.
