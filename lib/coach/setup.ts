@@ -84,11 +84,15 @@ export function initialSetupDraft(): ProjectSetupDraft {
     days: [1, 4, 6],
     minutes: 30,
     window: 'evening',
-    humanOwned: 'final prose, creative decisions',
+    humanOwned: 'final work, creative decisions',
     delegable: 'formatting, organizing notes',
     tone: 'dry',
     milestone: '',
   };
+}
+
+export function clearSetupModelOutput(draft: ProjectSetupDraft): ProjectSetupDraft {
+  return { ...draft, milestone: '' };
 }
 
 export function setupQuestion(step: SetupStep): SetupQuestionCopy {

@@ -162,10 +162,11 @@ export function continuitySummary(
     return `Returned ${returned} of ${elapsed.length} scheduled ${elapsed.length === 1 ? 'day' : 'days'} ${rangeLabel}.`;
   }
 
-  const firstDate = isScheduledDay(project.covenant, today)
-    ? today
-    : nextScheduledDayAfter(project.covenant, today);
+  const firstDate = isScheduledDay(project.covenant, created)
+    ? created
+    : nextScheduledDayAfter(project.covenant, created);
   if (!firstDate) return 'No scheduled days are set yet.';
+  if (firstDate < today) return `No scheduled days have elapsed ${rangeLabel}.`;
   const weekday = new Intl.DateTimeFormat('en-US', { weekday: 'long' }).format(new Date(`${firstDate}T12:00:00`));
   return `The first scheduled day is ${weekday} ${project.covenant.schedule.window}.`;
 }

@@ -230,7 +230,7 @@ function OAuthConnectRow({ state, device, onStart, onDisconnect, disabled }: { s
     content = <button type="button" className="quiet" disabled={disabled || state === 'loading' || state === 'starting'} onClick={() => void onStart()}>{state === 'starting' ? 'Starting the connection' : 'Connect your Grok subscription'}</button>;
   }
 
-  return <div className="oauth-connect-row"><div>{content}</div><p className="oauth-honesty">Uses your Grok subscription. xAI may refuse some subscription plans.</p></div>;
+  return <div className="oauth-connect-row"><div>{content}</div><p className="oauth-honesty">Uses the Grok CLI&apos;s public connection. xAI may restrict it or refuse some subscription plans.</p></div>;
 }
 
 function ProviderOption({ id, checked, disabled = false, onChange, label, detail, hint, status }: { id: CoachProviderId; checked: boolean; disabled?: boolean; onChange: (provider: CoachProviderId) => void; label: string; detail: string; hint?: string; status?: ProviderCheckStatus }) {

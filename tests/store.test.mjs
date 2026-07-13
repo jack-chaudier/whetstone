@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
 import { EMPTY_STATE, STORE_KEY, continuitySummary, createProject, deleteProject, loadState, selectProject, setProjectCoachProvider } from '../lib/store/repo.ts';
 import { ScriptedCoachProvider } from '../lib/coach/scripted.mjs';
+import { clearSetupModelOutput } from '../lib/coach/setup.ts';
 
 const values = new Map();
 const localStorage = {
@@ -142,20 +143,75 @@ describe('continuity copy', () => {
     expect(continuitySummary(newProject, [{ date: '2026-07-13', status: 'worked' }], 'in the last week', '2026-07-13'))
       .toBe('Returned 1 of 1 scheduled day in the last week.');
   });
+
+  test('does not call an older project\'s open day its first scheduled day', () => {
+    const olderProject = {
+      ...project('older'),
+      createdAt: '2026-06-01T16:00:00.000Z',
+      covenant: {
+        ...covenant,
+        schedule: { ...covenant.schedule, days: [1] },
+        createdAt: '2026-06-01T16:00:00.000Z',
+      },
+    };
+    const entries = [
+      { date: '2026-07-07', status: 'rest' },
+      { date: '2026-07-08', status: 'rest' },
+      { date: '2026-07-09', status: 'rest' },
+      { date: '2026-07-10', status: 'rest' },
+      { date: '2026-07-11', status: 'rest' },
+      { date: '2026-07-12', status: 'rest' },
+      { date: '2026-07-13', status: 'open' },
+    ];
+
+    expect(continuitySummary(olderProject, entries, 'in the last week', '2026-07-13'))
+      .toBe('No scheduled days have elapsed in the last week.');
+  });
 });
 
 describe('scripted make invitations', () => {
-  test('keeps stop conditions distinct and artifact-neutral', async () => {
+  test('keeps invitations distinct and artifact-neutral', async () => {
     const coach = new ScriptedCoachProvider();
     const makeProject = { ...project('make'), covenant };
-    const stopConditions = [];
+    const invitations = [];
 
     for (let index = 0; index < 4; index += 1) {
       const draft = await coach.generateInvitation({ ...makeProject, invitations: Array.from({ length: index }) }, { missedLastScheduled: false });
-      stopConditions.push(draft.stopCondition);
+      invitations.push(draft);
     }
 
-    expect(new Set(stopConditions).size).toBe(4);
-    expect(stopConditions.join(' ')).not.toMatch(/character|element/iu);
+    const recovery = await coach.generateInvitation(makeProject, { missedLastScheduled: true });
+    const question = await coach.assist(makeProject, {}, '', 'question');
+    const options = await coach.assist(makeProject, {}, '', 'options');
+
+    expect(new Set(invitations.map((draft) => draft.stopCondition)).size).toBe(4);
+    expect([
+      ...invitations.map(({ action, stopCondition }) => `${action} ${stopCondition}`),
+      recovery.action,
+      question,
+      options,
+    ].join(' '))
+      .not.toMatch(/\b(?:beat|character|prose|scene|sentence|words?)\b/iu);
+  });
+});
+
+describe('guided setup model changes', () => {
+  test('keeps human answers but removes the previous model\'s milestone', () => {
+    const draft = {
+      ambition: 'Finish and release a four-track EP',
+      why: 'I want the songs to exist outside my voice memos',
+      shape: 'make',
+      existing: 'Two demos and one chorus',
+      obstacle: 'Collecting sounds instead of arranging',
+      days: [1, 4, 6],
+      minutes: 30,
+      window: 'evening',
+      humanOwned: 'final work, creative decisions',
+      delegable: 'organizing notes',
+      tone: 'dry',
+      milestone: 'MODEL_AUTHORED_MILESTONE',
+    };
+
+    expect(clearSetupModelOutput(draft)).toEqual({ ...draft, milestone: '' });
   });
 });

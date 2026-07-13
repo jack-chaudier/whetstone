@@ -7,7 +7,7 @@ import { CoachProviderPicker } from '@/components/coach-provider-picker';
 import { useApp } from '@/components/app-provider';
 import { generateInvitation, setupTurn } from '@/lib/coach/client';
 import { COACH_MODELS } from '@/lib/coach/models';
-import { SETUP_STEPS, initialSetupDraft, setupAnswerText, type ProjectSetupDraft, type SetupReply, type SetupStep } from '@/lib/coach/setup';
+import { SETUP_STEPS, clearSetupModelOutput, initialSetupDraft, setupAnswerText, type ProjectSetupDraft, type SetupReply, type SetupStep } from '@/lib/coach/setup';
 import type { CoachProviderId, CoachTone, Covenant, Project, ProjectShape } from '@/lib/types';
 
 const dayLabels = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
@@ -48,9 +48,15 @@ export default function OnboardingPage() {
 
   useEffect(() => {
     const transcript = transcriptRef.current;
+    const question = questionRef.current;
+    if (stage === 'conversation' && !working && turns.length > 0 && step === 'review') {
+      question?.focus({ preventScroll: true });
+      question?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      return;
+    }
     if (transcript) transcript.scrollTo({ top: transcript.scrollHeight, behavior: 'smooth' });
-    if (stage === 'conversation' && !working && turns.length > 0) questionRef.current?.focus();
-  }, [stage, turns, working]);
+    if (stage === 'conversation' && !working && turns.length > 0) question?.focus();
+  }, [stage, step, turns, working]);
 
   useEffect(() => () => {
     requestEpochRef.current += 1;
@@ -156,6 +162,7 @@ export default function OnboardingPage() {
     setSelectedProvider(null);
     setStage('choose');
     setStepIndex(0);
+    setDraft(clearSetupModelOutput);
     setTurns([]);
     setError(null);
   }
@@ -188,7 +195,7 @@ export default function OnboardingPage() {
     {stage === 'choose' ? <section className="setup-choose" aria-labelledby="setup-title">
       <div className="setup-intro enter"><p className="eyebrow">Tenzon</p><h1 id="setup-title" className="display">Choose who should help you set this project up.</h1><p>One conversation, nine questions. Your answers become the covenant, and you can revise it later.</p></div>
       <div className="surface setup-provider-card enter">
-        <CoachProviderPicker selected={selectedProvider} onChange={setSelectedProvider} showCheck={false} legend="Choose a setup model" disabled={working} />
+        <CoachProviderPicker selected={selectedProvider} onChange={setSelectedProvider} legend="Choose a setup model" disabled={working} />
       </div>
       {error && <ErrorNotice message={error} onSwitch={() => {
         setSelectedProvider(null);
@@ -228,10 +235,10 @@ export default function OnboardingPage() {
 function SetupControl({ step, draft, covenant, update, disabled }: { step: SetupStep; draft: ProjectSetupDraft; covenant: Covenant; update: <K extends keyof ProjectSetupDraft>(key: K, value: ProjectSetupDraft[K]) => void; disabled: boolean }) {
   if (step === 'ambition' || step === 'why' || step === 'existing' || step === 'obstacle') {
     const placeholders: Record<typeof step, string> = {
-      ambition: 'Write a fantasy novel',
-      why: 'Because this idea has followed me for years',
-      existing: 'Character notes, a rough opening, three abandoned scenes',
-      obstacle: 'I replace difficult scenes with more planning',
+      ambition: 'Finish and release a four-track EP',
+      why: 'Because I want this work to exist outside my notes',
+      existing: 'Fragments, rough studies, and one false start',
+      obstacle: 'I replace difficult decisions with more planning',
     };
     return <label className="setup-text-control"><span className="sr-only">Answer</span><textarea className="field onboarding-input" rows={3} maxLength={step === 'existing' || step === 'obstacle' ? 4000 : 2000} value={draft[step]} disabled={disabled} onChange={(event) => update(step, event.target.value)} placeholder={placeholders[step]} /></label>;
   }
